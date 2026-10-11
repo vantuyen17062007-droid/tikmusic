@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MOCK_SONGS } from '@/data/mockData';
+import { checkDbRateLimit } from '@/lib/db';
+import { getClientIp } from '@/lib/auth';
 
 const ALLOWED_TIKTOK_HOSTS = [
   'tiktok.com',
@@ -11,6 +13,19 @@ const ALLOWED_TIKTOK_HOSTS = [
 
 export async function POST(req: NextRequest) {
   try {
+    // A11: Rate limiting theo IP cho endpoint trích xuất link TikTok (10 lần/phút)
+    const ip = getClientIp(req);
+    const rateCheck = await checkDbRateLimit(`tiktok_${ip}`, 10, 60 * 1000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Bạn đã thực hiện quá nhiều yêu cầu. Vui lòng thử lại sau ${rateCheck.retryAfterSec} giây.`,
+        },
+        { status: 429 }
+      );
+    }
+
     let body;
     try {
       body = await req.json();
@@ -61,11 +76,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Kiểm tra danh mục bài hát mẫu đã liên kết trong dự án
+    // 3. A11: So khớp chính xác handle của người sáng tạo trong pathname URL
+    const pathname = parsedUrl.pathname.toLowerCase();
     const matchingSample = MOCK_SONGS.find((s) => {
-      if (cleanUrl.includes('rhyder') && s.id === 'song-1') return true;
-      if (cleanUrl.includes('hieuthuhai') && s.id === 'song-2') return true;
-      if (cleanUrl.includes('sontung') && s.id === 'song-3') return true;
+      if (pathname.includes('/@rhyder') && s.id === 'song-1') return true;
+      if (pathname.includes('/@hieuthuhai') && s.id === 'song-2') return true;
+      if (pathname.includes('/@sontungmtp_official') && s.id === 'song-3') return true;
       return false;
     });
 

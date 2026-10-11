@@ -85,6 +85,7 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
                 alt={user.name}
                 fill
                 sizes="64px"
+                unoptimized
                 className="object-cover"
               />
             ) : (
@@ -98,7 +99,7 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
             <p className="text-xs text-slate-400 truncate mt-0.5">{user.email}</p>
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#25F4EE] bg-[#25F4EE]/10 px-2 py-0.5 rounded-md mt-1.5">
               <Shield className="w-3 h-3" />
-              Tài khoản đã xác thực
+              Thành viên TikMusic
             </span>
           </div>
         </div>

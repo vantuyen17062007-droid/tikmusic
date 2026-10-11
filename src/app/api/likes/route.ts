@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateSession, SESSION_COOKIE_NAME } from '@/lib/auth';
+import { requireUser, verifyCsrfOrigin } from '@/lib/auth';
 import { getUserLikedSongIds, toggleDbLike } from '@/lib/db';
 import { z } from 'zod';
 
@@ -9,15 +9,11 @@ const likeSchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
-    if (!token) {
+    const authResult = await requireUser(req);
+    if (authResult.errorResponse) {
       return NextResponse.json({ likedSongIds: [] });
     }
-
-    const payload = await validateSession(token);
-    if (!payload) {
-      return NextResponse.json({ likedSongIds: [] });
-    }
+    const { user: payload } = authResult;
 
     const likedIds = await getUserLikedSongIds(payload.userId);
     return NextResponse.json({ likedSongIds: likedIds });
@@ -29,21 +25,18 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
-    if (!token) {
+    if (!verifyCsrfOrigin(req)) {
       return NextResponse.json(
-        { success: false, message: 'Vui lòng đăng nhập để lưu bài hát yêu thích.' },
-        { status: 401 }
+        { success: false, message: 'Yêu cầu bị từ chối do vi phạm bảo mật CSRF.' },
+        { status: 403 }
       );
     }
 
-    const payload = await validateSession(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, message: 'Phiên đăng nhập không hợp lệ.' },
-        { status: 401 }
-      );
+    const authResult = await requireUser(req);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
     }
+    const { user: payload } = authResult;
 
     let body;
     try {

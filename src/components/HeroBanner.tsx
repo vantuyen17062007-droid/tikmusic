@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Link2, Download, Music, Sparkles, Play } from 'lucide-react';
 import { useMusic } from '../context/MusicContext';
+import TikTokIcon from './TikTokIcon';
 
 export default function HeroBanner() {
   const { openDownloadModal } = useMusic();
@@ -196,13 +197,11 @@ export default function HeroBanner() {
               <div className="flex-1 my-3 bg-gradient-to-br from-[#121930] via-[#090C15] to-[#1E1136] rounded-[24px] flex flex-col items-center justify-center p-4 relative overflow-hidden">
                 {/* TikTok Logo Glow */}
                 <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-[#FE2C55]/20 via-[#25F4EE]/20 to-[#8B5CF6]/20 flex items-center justify-center relative">
-                  <svg className="w-12 h-12 text-white drop-shadow-[0_0_12px_rgba(254,44,85,0.8)]" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19.589 6.686a4.793 4.793 0 0 1-3.77-4.245V2h-3.445v13.672a2.896 2.896 0 0 1-5.209 1.74 2.895 2.895 0 0 1 2.313-4.636c.298 0 .586.046.857.13V9.378a6.34 6.34 0 0 0-.857-.058 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.336-6.34V8.375a8.196 8.196 0 0 0 4.775 1.524V6.454a4.823 4.823 0 0 1-1-.068z" />
-                  </svg>
+                  <TikTokIcon className="w-12 h-12 text-white drop-shadow-[0_0_12px_rgba(254,44,85,0.8)]" />
                 </div>
                 <div className="mt-3 text-center">
                   <p className="text-[11px] font-semibold text-white tracking-wider">TIKTOK SOUND</p>
-                  <p className="text-[9px] text-[#25F4EE]">HD Audio 320kbps</p>
+                  <p className="text-[9px] text-[#25F4EE]">Audio Minh Họa</p>
                 </div>
               </div>
 

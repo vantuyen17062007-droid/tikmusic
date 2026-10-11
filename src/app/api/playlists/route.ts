@@ -1,28 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateSession, SESSION_COOKIE_NAME } from '@/lib/auth';
+import { requireUser, verifyCsrfOrigin } from '@/lib/auth';
 import { getUserPlaylists, createDbPlaylist } from '@/lib/db';
 import { z } from 'zod';
 import crypto from 'crypto';
 
+// A10: Bỏ coverUrl khỏi schema, luôn dùng ảnh mặc định từ server
 const createPlaylistSchema = z.object({
   name: z
     .string()
     .min(1, 'Tên danh sách phát không được để trống')
     .max(100, 'Tên danh sách phát không được vượt quá 100 ký tự'),
-  coverUrl: z.string().optional(),
 });
+
+const DEFAULT_COVERS = [
+  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=80',
+];
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
-    if (!token) {
+    const authResult = await requireUser(req);
+    if (authResult.errorResponse) {
       return NextResponse.json({ playlists: [] });
     }
-
-    const payload = await validateSession(token);
-    if (!payload) {
-      return NextResponse.json({ playlists: [] });
-    }
+    const { user: payload } = authResult;
 
     const userPlaylists = await getUserPlaylists(payload.userId);
     return NextResponse.json({ playlists: userPlaylists });
@@ -37,21 +40,19 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
-    if (!token) {
+    // A9: CSRF protection
+    if (!verifyCsrfOrigin(req)) {
       return NextResponse.json(
-        { success: false, message: 'Vui lòng đăng nhập để tạo và lưu playlist trên tài khoản của bạn.' },
-        { status: 401 }
+        { success: false, message: 'Yêu cầu bị từ chối do vi phạm bảo mật CSRF.' },
+        { status: 403 }
       );
     }
 
-    const payload = await validateSession(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' },
-        { status: 401 }
-      );
+    const authResult = await requireUser(req);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
     }
+    const { user: payload } = authResult;
 
     let body;
     try {
@@ -71,18 +72,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const defaultCovers = [
-      'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=80',
-    ];
-    const randomCover = defaultCovers[Math.floor(Math.random() * defaultCovers.length)];
+    // A10: Luôn chọn ảnh bìa mặc định từ danh sách cố định phía server
+    const randomCover = DEFAULT_COVERS[Math.floor(Math.random() * DEFAULT_COVERS.length)];
 
     const playlist = await createDbPlaylist({
       id: `pl_${crypto.randomUUID()}`,
       userId: payload.userId,
       name: validation.data.name,
-      coverUrl: validation.data.coverUrl || randomCover,
+      coverUrl: randomCover,
     });
 
     return NextResponse.json(

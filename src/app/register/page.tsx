@@ -64,8 +64,8 @@ export default function RegisterPage() {
 
     if (!password) {
       errors.password = 'Vui lòng nhập mật khẩu';
-    } else if (password.length < 6) {
-      errors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+    } else if (password.length < 8) {
+      errors.password = 'Mật khẩu phải có ít nhất 8 ký tự';
     }
 
     if (!confirmPassword) {
@@ -235,7 +235,7 @@ export default function RegisterPage() {
                   setPassword(e.target.value);
                   if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
                 }}
-                placeholder="Tối thiểu 6 ký tự"
+                placeholder="Tối thiểu 8 ký tự"
                 required
                 className={`w-full bg-[#0E1528] border ${
                   fieldErrors.password ? 'border-[#FE2C55]' : 'border-[#263359] focus:border-[#8B5CF6]'

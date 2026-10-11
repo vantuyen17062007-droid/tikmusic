@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Download, Music, AlertCircle, Info, Loader2 } from 'lucide-react';
+import { X, Download, Music, AlertCircle, Info, Loader2, Sparkles } from 'lucide-react';
 import { useMusic } from '../context/MusicContext';
 import { DownloadQuality } from '../types';
 import Image from 'next/image';
@@ -15,31 +15,32 @@ export default function DownloadModal() {
   if (!downloadModalOpen || !songToDownload) return null;
 
   const hasAudioUrl = Boolean(songToDownload.audioUrl);
+  const isSampleAudio = songToDownload.isDemoSample || songToDownload.audioUrl.includes('actions.google.com');
 
   const qualityOptions: { id: DownloadQuality; label: string; desc: string; size: string }[] = [
     {
       id: '128',
-      label: '128 kbps (MP3)',
-      desc: 'Tiêu chuẩn',
+      label: 'Chất lượng tiêu chuẩn (128 kbps)',
+      desc: 'Tối ưu dung lượng',
       size: songToDownload.fileSize128 || '2.5 MB',
     },
     {
       id: '192',
-      label: '192 kbps (MP3)',
-      desc: 'Chất lượng cao',
+      label: 'Chất lượng cao (192 kbps)',
+      desc: 'Âm thanh chi tiết',
       size: songToDownload.fileSize192 || '3.7 MB',
     },
     {
       id: '320',
-      label: '320 kbps (MP3)',
-      desc: 'Studio Lossless',
+      label: 'Chất lượng tối đa (320 kbps)',
+      desc: 'Nguyên bản tốt nhất',
       size: songToDownload.fileSize320 || '6.1 MB',
     },
   ];
 
   const handleDownload = async () => {
     if (!hasAudioUrl) {
-      setErrorMsg('Bài hát này chưa có nguồn âm thanh hợp lệ được cấp phép để tải.');
+      setErrorMsg('Bài hát này chưa có nguồn âm thanh được cấp phép tải trực tiếp.');
       return;
     }
 
@@ -47,23 +48,37 @@ export default function DownloadModal() {
     setErrorMsg('');
 
     try {
-      // Thực hiện tải file thật từ nguồn audioUrl
-      const response = await fetch(songToDownload.audioUrl);
+      let extension = 'mp3';
+      if (songToDownload.audioUrl.endsWith('.ogg')) extension = 'ogg';
+      else if (songToDownload.audioUrl.endsWith('.wav')) extension = 'wav';
+
+      const fileName = isSampleAudio
+        ? `${songToDownload.artist} - ${songToDownload.title} (Bản mẫu).${extension}`
+        : `${songToDownload.artist} - ${songToDownload.title} (${selectedQuality}kbps).${extension}`;
+
+      // C3: Tải file qua API Proxy an toàn để tránh lỗi CORS giữa các domain khác nhau
+      const proxyUrl = `/api/audio/proxy?url=${encodeURIComponent(songToDownload.audioUrl)}&filename=${encodeURIComponent(fileName)}`;
+
+      let response: Response;
+      try {
+        response = await fetch(proxyUrl);
+      } catch {
+        throw new Error('Lỗi kết nối mạng: Không thể liên lạc với máy chủ tải nhạc.');
+      }
+
       if (!response.ok) {
-        throw new Error('Không thể tải file âm thanh từ máy chủ.');
+        let errText = 'Nguồn âm thanh không phản hồi hoặc bị hạn chế bản quyền.';
+        try {
+          const errJson = await response.json();
+          if (errJson.message) errText = errJson.message;
+        } catch {
+          // keep errText
+        }
+        throw new Error(errText);
       }
 
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
-
-      // Xác định định dạng thật của file từ content-type
-      const contentType = response.headers.get('content-type') || '';
-      let extension = 'mp3';
-      if (contentType.includes('ogg')) extension = 'ogg';
-      else if (contentType.includes('wav')) extension = 'wav';
-      else if (contentType.includes('aac')) extension = 'aac';
-
-      const fileName = `${songToDownload.artist} - ${songToDownload.title} (${selectedQuality}kbps).${extension}`;
 
       const link = document.createElement('a');
       link.href = blobUrl;
@@ -75,9 +90,10 @@ export default function DownloadModal() {
 
       startDownload(songToDownload, selectedQuality);
       closeDownloadModal();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Download error:', err);
-      setErrorMsg('Không thể tải file âm thanh. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
+      const msg = err instanceof Error ? err.message : 'Đã xảy ra sự cố không xác định khi tải file.';
+      setErrorMsg(msg);
     } finally {
       setIsDownloading(false);
     }
@@ -97,11 +113,13 @@ export default function DownloadModal() {
                 <Music className="w-4 h-4 text-white" />
               </div>
             </div>
-            <h2 className="text-lg font-bold text-white tracking-tight">TikMusic</h2>
+            <h2 className="text-lg font-bold text-white tracking-tight">Tải nhạc TikMusic</h2>
           </div>
           <button
             onClick={closeDownloadModal}
-            className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-[#1C2642] transition-colors"
+            className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-[#1C2642] transition-colors cursor-pointer"
+            title="Đóng cửa sổ"
+            aria-label="Đóng cửa sổ"
           >
             <X className="w-5 h-5" />
           </button>
@@ -131,6 +149,7 @@ export default function DownloadModal() {
               alt={songToDownload.title}
               fill
               sizes="64px"
+              unoptimized
               className="object-cover"
             />
           </div>
@@ -145,54 +164,73 @@ export default function DownloadModal() {
           </div>
         </div>
 
-        {/* Quality Options */}
+        {/* C2: Quality Options vs Sample Single Option */}
         {hasAudioUrl ? (
           <div className="space-y-3">
             <label className="text-sm font-semibold text-slate-200 block">
-              Chọn chất lượng tải xuống
+              {isSampleAudio ? 'Chất lượng tệp âm thanh' : 'Chọn chất lượng tải xuống'}
             </label>
-            <div className="space-y-2.5">
-              {qualityOptions.map((opt) => {
-                const isSelected = selectedQuality === opt.id;
-                return (
-                  <div
-                    key={opt.id}
-                    onClick={() => setSelectedQuality(opt.id)}
-                    className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer border transition-all duration-200 ${
-                      isSelected
-                        ? 'bg-[#182138] border-[#8B5CF6] ring-1 ring-[#8B5CF6]/50 shadow-md shadow-[#8B5CF6]/10'
-                        : 'bg-[#0E1528] border-[#222E52]/60 hover:border-[#8B5CF6]/40 text-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
-                          isSelected ? 'border-[#8B5CF6] bg-[#8B5CF6]' : 'border-slate-500'
-                        }`}
-                      >
-                        {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+
+            {isSampleAudio ? (
+              // C2: Với nguồn mẫu, hiển thị rõ ràng nhãn Bản mẫu chất lượng gốc, không gây hiểu lầm bitrate
+              <div className="p-3.5 rounded-xl bg-[#182138] border border-[#8B5CF6]/60 text-white space-y-1.5 shadow-md shadow-[#8B5CF6]/10">
+                <div className="flex items-center gap-2 text-[#25F4EE] text-xs font-bold uppercase tracking-wide">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Bản mẫu, chất lượng gốc</span>
+                </div>
+                <p className="text-xs text-slate-300">
+                  Tệp âm thanh minh họa trải nghiệm (Định dạng {songToDownload.audioUrl.endsWith('.ogg') ? 'OGG' : 'MP3'}, dung lượng ~3.5 MB).
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {qualityOptions.map((opt) => {
+                  const isSelected = selectedQuality === opt.id;
+                  return (
+                    <div
+                      key={opt.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedQuality(opt.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') setSelectedQuality(opt.id);
+                      }}
+                      className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer border transition-all duration-200 outline-none ${
+                        isSelected
+                          ? 'bg-[#182138] border-[#8B5CF6] ring-1 ring-[#8B5CF6]/50 shadow-md shadow-[#8B5CF6]/10'
+                          : 'bg-[#0E1528] border-[#222E52]/60 hover:border-[#8B5CF6]/40 text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                            isSelected ? 'border-[#8B5CF6] bg-[#8B5CF6]' : 'border-slate-500'
+                          }`}
+                        >
+                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        <div>
+                          <p className={`text-sm font-semibold ${isSelected ? 'text-white' : 'text-slate-300'}`}>
+                            {opt.label}
+                          </p>
+                          <p className="text-[11px] text-slate-400">{opt.desc}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className={`text-sm font-semibold ${isSelected ? 'text-white' : 'text-slate-300'}`}>
-                          {opt.label}
-                        </p>
-                        <p className="text-[11px] text-slate-400">{opt.desc}</p>
-                      </div>
+                      <span className="text-xs font-medium text-slate-400">
+                        {opt.size}
+                      </span>
                     </div>
-                    <span className="text-xs font-medium text-slate-400">
-                      - {opt.size}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : (
           <div className="p-4 rounded-2xl bg-[#0E1528] border border-[#222E52] text-center space-y-2">
             <AlertCircle className="w-8 h-8 text-amber-400 mx-auto" />
             <h4 className="text-sm font-bold text-white">Chưa hỗ trợ tải âm thanh cho video này</h4>
             <p className="text-xs text-slate-400">
-              TikTok không phân phối luồng audio công khai qua oEmbed. Bạn có thể nghe các bài hát mẫu trong kho nhạc của hệ thống.
+              TikTok không phân phối luồng audio công khai qua oEmbed. Bạn có thể nghe và tải các bài hát mẫu trong kho nhạc của hệ thống.
             </p>
           </div>
         )}
@@ -201,17 +239,17 @@ export default function DownloadModal() {
         <button
           onClick={handleDownload}
           disabled={isDownloading || !hasAudioUrl}
-          className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#6D28D9] via-[#8B5CF6] to-[#A855F7] hover:from-[#7C3AED] hover:to-[#C084FC] text-white font-bold text-sm sm:text-base shadow-xl shadow-[#7C3AED]/40 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#6D28D9] via-[#8B5CF6] to-[#A855F7] hover:from-[#7C3AED] hover:to-[#C084FC] text-white font-bold text-sm sm:text-base shadow-xl shadow-[#7C3AED]/40 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           {isDownloading ? (
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Đang tải file từ máy chủ...</span>
+              <span>Đang tải file...</span>
             </>
           ) : (
             <>
               <Download className="w-5 h-5" />
-              <span>{hasAudioUrl ? 'Tải xuống' : 'Không thể tải'}</span>
+              <span>{hasAudioUrl ? 'Tải xuống ngay' : 'Không thể tải'}</span>
             </>
           )}
         </button>

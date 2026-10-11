@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { findUserByEmail, createUser } from '@/lib/db';
-import { hashPassword } from '@/lib/auth';
+import { findUserByEmail, createUser, checkDbRateLimit } from '@/lib/db';
+import { hashPassword, getClientIp, verifyCsrfOrigin } from '@/lib/auth';
 import crypto from 'crypto';
 
 const registerSchema = z
@@ -13,7 +13,7 @@ const registerSchema = z
     email: z.string().email('Email không đúng định dạng'),
     password: z
       .string()
-      .min(6, 'Mật khẩu phải có ít nhất 6 ký tự')
+      .min(8, 'Mật khẩu phải có ít nhất 8 ký tự')
       .max(100, 'Mật khẩu không được quá 100 ký tự'),
     confirmPassword: z.string(),
   })
@@ -24,6 +24,28 @@ const registerSchema = z
 
 export async function POST(req: NextRequest) {
   try {
+    // A9: CSRF protection
+    if (!verifyCsrfOrigin(req)) {
+      return NextResponse.json(
+        { success: false, message: 'Yêu cầu bị từ chối do vi phạm bảo mật CSRF.' },
+        { status: 403 }
+      );
+    }
+
+    // A2: Rate limiting cho Register (5 lần/giờ theo IP)
+    const ip = getClientIp(req);
+    const rateCheck = await checkDbRateLimit(`register_${ip}`, 5, 60 * 60 * 1000);
+
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Bạn đã thử đăng ký quá nhiều lần. Vui lòng thử lại sau ${rateCheck.retryAfterSec} giây.`,
+        },
+        { status: 429 }
+      );
+    }
+
     let body;
     try {
       body = await req.json();
@@ -51,15 +73,15 @@ export async function POST(req: NextRequest) {
     const { name, email, password } = validation.data;
     const cleanEmail = email.trim().toLowerCase();
 
-    // Check if user already exists
+    // A3: Check if user already exists -> Trả thông báo chung để không lộ thông tin email
     const existing = await findUserByEmail(cleanEmail);
     if (existing) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Email này đã được sử dụng. Vui lòng chọn email khác hoặc đăng nhập.',
+          message: 'Không thể tạo tài khoản với thông tin này, vui lòng thử email khác hoặc đăng nhập.',
         },
-        { status: 409 }
+        { status: 400 }
       );
     }
 
@@ -72,14 +94,29 @@ export async function POST(req: NextRequest) {
       name
     )}&backgroundColor=8b5cf6,25f4ee`;
 
-    // Save into database
-    const user = await createUser({
-      id: userId,
-      name,
-      email: cleanEmail,
-      passwordHash,
-      avatarUrl,
-    });
+    // A4: Save into database with race-condition handling (UNIQUE constraint)
+    let user;
+    try {
+      user = await createUser({
+        id: userId,
+        name,
+        email: cleanEmail,
+        passwordHash,
+        avatarUrl,
+      });
+    } catch (insertError: unknown) {
+      const errMsg = String(insertError);
+      if (errMsg.includes('UNIQUE constraint failed') || errMsg.includes('SQLITE_CONSTRAINT')) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Không thể tạo tài khoản với thông tin này, vui lòng thử email khác hoặc đăng nhập.',
+          },
+          { status: 400 }
+        );
+      }
+      throw insertError;
+    }
 
     return NextResponse.json(
       {

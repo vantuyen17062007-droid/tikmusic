@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Search,
-  Moon,
+  X,
   ChevronDown,
   Music,
   Menu,
@@ -24,10 +24,11 @@ interface HeaderProps {
 }
 
 export default function Header({ onToggleMobileMenu }: HeaderProps) {
-  const { searchQuery, handleSearch, openDownloadModal, setActiveTab } = useMusic();
+  const { searchQuery, handleSearch, openDownloadModal, setActiveTab, showToast } = useMusic();
   const { user, logout, isLoading } = useAuth();
 
   const [inputVal, setInputVal] = useState(searchQuery);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
 
@@ -61,74 +62,79 @@ export default function Header({ onToggleMobileMenu }: HeaderProps) {
         const data = await res.json();
         if (res.ok && data.success) {
           openDownloadModal(data.data, data.message);
+          setMobileSearchOpen(false);
         } else {
-          alert(data.message || 'Không thể xử lý link TikTok này.');
+          showToast(data.message || 'Không thể xử lý link TikTok này.');
         }
       } catch {
-        alert('Lỗi kết nối máy chủ.');
+        showToast('Lỗi kết nối máy chủ.');
       } finally {
         setIsSearchingLink(false);
       }
     } else {
       handleSearch(inputVal);
+      setMobileSearchOpen(false);
     }
   };
 
   return (
     <>
-      <header className="h-20 border-b border-[#1B2544]/60 bg-[#0B0E17]/80 backdrop-blur-md px-4 sm:px-8 flex items-center justify-between gap-4 sticky top-0 z-30">
-        {/* Mobile brand & menu button */}
-        <div className="flex items-center gap-3 md:hidden">
-          <button
-            onClick={onToggleMobileMenu}
-            className="p-2 text-slate-300 hover:text-white rounded-lg hover:bg-[#161F36]"
-            aria-label="Toggle menu"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#FE2C55] via-[#25F4EE] to-[#8B5CF6] p-[2px]">
-              <div className="w-full h-full bg-[#0B0E17] rounded-[6px] flex items-center justify-center">
-                <Music className="w-4 h-4 text-white" />
-              </div>
-            </div>
-            <span className="font-bold text-white text-base">TikMusic</span>
-          </div>
-        </div>
-
-        {/* Center Search Bar */}
-        <form
-          onSubmit={onSubmit}
-          className="flex-1 max-w-2xl hidden sm:flex items-center relative"
-        >
-          <div className="relative w-full flex items-center">
-            <Search className="w-4 h-4 text-slate-400 absolute left-4 pointer-events-none" />
-            <input
-              type="text"
-              value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
-              placeholder="Dán link TikTok hoặc tìm kiếm bài hát..."
-              className="w-full bg-[#121829] border border-[#222E52] focus:border-[#8B5CF6] text-sm text-white placeholder-slate-400 pl-11 pr-28 py-2.5 rounded-full outline-none transition-all focus:ring-2 focus:ring-[#8B5CF6]/30 shadow-inner"
-            />
+      <header className="border-b border-[#1B2544]/60 bg-[#0B0E17]/80 backdrop-blur-md sticky top-0 z-30">
+        <div className="h-20 px-4 sm:px-8 flex items-center justify-between gap-4">
+          {/* Mobile brand & menu button */}
+          <div className="flex items-center gap-3 md:hidden">
             <button
-              type="submit"
-              disabled={isSearchingLink}
-              className="absolute right-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#6D28D9] to-[#8B5CF6] hover:from-[#7C3AED] hover:to-[#A855F7] text-white text-xs font-semibold shadow-md shadow-[#7C3AED]/30 transition-all active:scale-95 disabled:opacity-50"
+              onClick={onToggleMobileMenu}
+              className="p-2 text-slate-300 hover:text-white rounded-lg hover:bg-[#161F36]"
+              aria-label="Toggle menu"
             >
-              {isSearchingLink ? 'Đang tìm...' : 'Tìm kiếm'}
+              <Menu className="w-6 h-6" />
             </button>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#FE2C55] via-[#25F4EE] to-[#8B5CF6] p-[2px]">
+                <div className="w-full h-full bg-[#0B0E17] rounded-[6px] flex items-center justify-center">
+                  <Music className="w-4 h-4 text-white" />
+                </div>
+              </div>
+              <span className="font-bold text-white text-base">TikMusic</span>
+            </div>
           </div>
-        </form>
 
-        {/* Right User Actions */}
-        <div className="flex items-center gap-3">
-          {/* Dark Mode Icon */}
-          <button
-            className="p-2.5 rounded-full text-slate-400 hover:text-white hover:bg-[#161F36] transition-all"
-            title="Giao diện tối"
+          {/* Center Search Bar (Desktop / Tablet) */}
+          <form
+            onSubmit={onSubmit}
+            className="flex-1 max-w-2xl hidden sm:flex items-center relative"
           >
-            <Moon className="w-5 h-5" />
-          </button>
+            <div className="relative w-full flex items-center">
+              <Search className="w-4 h-4 text-slate-400 absolute left-4 pointer-events-none" />
+              <input
+                type="text"
+                value={inputVal}
+                onChange={(e) => setInputVal(e.target.value)}
+                placeholder="Dán link TikTok hoặc tìm kiếm bài hát..."
+                className="w-full bg-[#121829] border border-[#222E52] focus:border-[#8B5CF6] text-sm text-white placeholder-slate-400 pl-11 pr-28 py-2.5 rounded-full outline-none transition-all focus:ring-2 focus:ring-[#8B5CF6]/30 shadow-inner"
+              />
+              <button
+                type="submit"
+                disabled={isSearchingLink}
+                className="absolute right-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#6D28D9] to-[#8B5CF6] hover:from-[#7C3AED] hover:to-[#A855F7] text-white text-xs font-semibold shadow-md shadow-[#7C3AED]/30 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {isSearchingLink ? 'Đang tìm...' : 'Tìm kiếm'}
+              </button>
+            </div>
+          </form>
+
+          {/* Right User Actions */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* D1: Mobile Search Toggle Button */}
+            <button
+              onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
+              className="p-2 sm:hidden rounded-full text-slate-300 hover:text-white hover:bg-[#161F36] transition-all cursor-pointer"
+              title="Tìm kiếm"
+              aria-label="Tìm kiếm bài hát hoặc dán link TikTok"
+            >
+              <Search className="w-5 h-5" />
+            </button>
 
           {/* User Auth Section */}
           {isLoading ? (
@@ -210,9 +216,10 @@ export default function Header({ onToggleMobileMenu }: HeaderProps) {
                     <button
                       onClick={async () => {
                         setUserDropdownOpen(false);
-                        await logout();
+                        const res = await logout();
+                        showToast(res.message || 'Đã đăng xuất tài khoản.');
                       }}
-                      className="w-full px-4 py-2 text-xs sm:text-sm text-[#FE2C55] hover:bg-[#FE2C55]/10 flex items-center gap-2.5 transition-colors text-left font-medium"
+                      className="w-full px-4 py-2 text-xs sm:text-sm text-[#FE2C55] hover:bg-[#FE2C55]/10 flex items-center gap-2.5 transition-colors text-left font-medium cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" />
                       <span>Đăng xuất</span>
@@ -240,6 +247,39 @@ export default function Header({ onToggleMobileMenu }: HeaderProps) {
             </div>
           )}
         </div>
+      </div>
+
+        {/* D1: Mobile Search Bar Expansion */}
+        {mobileSearchOpen && (
+          <div className="sm:hidden px-4 py-2.5 bg-[#0D1222] border-t border-[#1B2544]/60 flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
+            <form onSubmit={onSubmit} className="flex-1 flex items-center relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+              <input
+                type="text"
+                autoFocus
+                value={inputVal}
+                onChange={(e) => setInputVal(e.target.value)}
+                placeholder="Dán link TikTok hoặc tìm bài hát..."
+                className="w-full bg-[#121829] border border-[#222E52] focus:border-[#8B5CF6] text-xs text-white placeholder-slate-400 pl-9 pr-20 py-2 rounded-full outline-none focus:ring-1 focus:ring-[#8B5CF6]/50"
+              />
+              <button
+                type="submit"
+                disabled={isSearchingLink}
+                className="absolute right-1 px-3 py-1 rounded-full bg-gradient-to-r from-[#6D28D9] to-[#8B5CF6] text-white text-[11px] font-semibold active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {isSearchingLink ? '...' : 'Tìm'}
+              </button>
+            </form>
+            <button
+              type="button"
+              onClick={() => setMobileSearchOpen(false)}
+              className="p-1.5 text-slate-400 hover:text-white cursor-pointer"
+              aria-label="Đóng tìm kiếm"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Account Info Modal */}

@@ -20,7 +20,7 @@ interface AuthContextType {
     password: string,
     confirmPassword: string
   ) => Promise<{ success: boolean; message: string; errors?: Record<string, string[]> }>;
-  logout: () => Promise<void>;
+  logout: () => Promise<{ success: boolean; message?: string }>;
   refreshUser: () => Promise<void>;
 }
 
@@ -105,11 +105,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = async () => {
+  const logout = async (): Promise<{ success: boolean; message?: string }> => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      if (!res.ok) {
+        return { success: false, message: 'Đăng xuất không hoàn tất trên máy chủ' };
+      }
+      return { success: true, message: 'Đã đăng xuất thành công' };
     } catch (err) {
       console.error('Logout error', err);
+      return { success: false, message: 'Lỗi mạng khi đăng xuất' };
     } finally {
       setUser(null);
     }

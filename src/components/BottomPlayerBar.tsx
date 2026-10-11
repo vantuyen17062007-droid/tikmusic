@@ -14,6 +14,7 @@ import {
   Maximize2,
 } from 'lucide-react';
 import { useMusic } from '../context/MusicContext';
+import { formatTime } from '../lib/utils';
 import Image from 'next/image';
 
 export default function BottomPlayerBar() {
@@ -42,12 +43,6 @@ export default function BottomPlayerBar() {
 
   if (!currentSong || activeTab === 'player') return null;
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
-
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const liked = isLiked(currentSong.id);
 
@@ -56,8 +51,17 @@ export default function BottomPlayerBar() {
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         {/* Left: Song Info */}
         <div
+          role="button"
+          tabIndex={0}
           onClick={() => setActiveTab('player')}
-          className="flex items-center gap-3 min-w-0 flex-1 sm:flex-initial cursor-pointer group"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setActiveTab('player');
+            }
+          }}
+          aria-label="Mở trình phát bài hát"
+          className="flex items-center gap-3 min-w-0 flex-1 sm:flex-initial cursor-pointer group outline-none"
         >
           <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-[#161F36] ring-1 ring-white/10 group-hover:ring-[#8B5CF6] transition-all">
             <Image
@@ -80,7 +84,9 @@ export default function BottomPlayerBar() {
               e.stopPropagation();
               toggleLike(currentSong.id);
             }}
-            className={`p-2 rounded-full transition-colors hidden sm:block ${
+            title={liked ? 'Bỏ thích' : 'Thích bài hát'}
+            aria-label={liked ? 'Bỏ thích' : 'Thích bài hát'}
+            className={`p-2 rounded-full transition-colors hidden sm:block cursor-pointer ${
               liked ? 'text-[#FE2C55]' : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -92,27 +98,33 @@ export default function BottomPlayerBar() {
         <div className="flex flex-col items-center flex-1 max-w-xl px-2">
           <div className="flex items-center gap-4 mb-1">
             <button
+              type="button"
               onClick={toggleShuffle}
-              className={`p-1.5 transition-colors hidden sm:block ${
+              className={`p-1.5 transition-colors hidden sm:block cursor-pointer ${
                 isShuffle ? 'text-[#25F4EE]' : 'text-slate-400 hover:text-white'
               }`}
-              title="Trộn bài"
+              title="Phát ngẫu nhiên"
+              aria-label="Phát ngẫu nhiên"
             >
               <Shuffle className="w-4 h-4" />
             </button>
 
             <button
+              type="button"
               onClick={playPrevious}
-              className="p-1.5 text-slate-300 hover:text-white transition-colors"
+              className="p-1.5 text-slate-300 hover:text-white transition-colors cursor-pointer"
               title="Bài trước"
+              aria-label="Phát bài trước"
             >
               <SkipBack className="w-4 h-4" />
             </button>
 
             <button
+              type="button"
               onClick={togglePlay}
-              className="w-9 h-9 rounded-full bg-gradient-to-r from-[#6D28D9] to-[#8B5CF6] hover:scale-105 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-[#7C3AED]/40 transition-all"
+              className="w-9 h-9 rounded-full bg-gradient-to-r from-[#6D28D9] to-[#8B5CF6] hover:scale-105 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-[#7C3AED]/40 transition-all cursor-pointer"
               title={isPlaying ? 'Tạm dừng' : 'Phát'}
+              aria-label={isPlaying ? 'Tạm dừng' : 'Phát bài hát'}
             >
               {isPlaying ? (
                 <Pause className="w-4 h-4 fill-current" />
@@ -122,19 +134,23 @@ export default function BottomPlayerBar() {
             </button>
 
             <button
+              type="button"
               onClick={playNext}
-              className="p-1.5 text-slate-300 hover:text-white transition-colors"
+              className="p-1.5 text-slate-300 hover:text-white transition-colors cursor-pointer"
               title="Bài tiếp"
+              aria-label="Phát bài tiếp"
             >
               <SkipForward className="w-4 h-4" />
             </button>
 
             <button
+              type="button"
               onClick={toggleRepeat}
-              className={`p-1.5 transition-colors hidden sm:block ${
+              className={`p-1.5 transition-colors hidden sm:block cursor-pointer ${
                 isRepeat ? 'text-[#8B5CF6]' : 'text-slate-400 hover:text-white'
               }`}
               title="Lặp lại"
+              aria-label="Lặp lại bài hát"
             >
               <Repeat className="w-4 h-4" />
             </button>
@@ -144,12 +160,18 @@ export default function BottomPlayerBar() {
           <div className="w-full flex items-center gap-2.5 text-[11px] text-slate-400 font-medium">
             <span className="w-8 text-right hidden sm:inline">{formatTime(currentTime)}</span>
             <div
+              role="slider"
+              tabIndex={0}
+              aria-label="Tiến trình phát bài hát"
+              aria-valuenow={Math.round(currentTime)}
+              aria-valuemin={0}
+              aria-valuemax={Math.round(duration)}
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const clickPos = (e.clientX - rect.left) / rect.width;
                 seek(clickPos * duration);
               }}
-              className="flex-1 h-1.5 bg-[#1B2544] hover:h-2 rounded-full cursor-pointer relative group transition-all"
+              className="flex-1 h-1.5 bg-[#1B2544] hover:h-2 rounded-full cursor-pointer relative group transition-all outline-none"
             >
               <div
                 className="h-full bg-gradient-to-r from-[#25F4EE] to-[#8B5CF6] rounded-full relative"
@@ -164,7 +186,12 @@ export default function BottomPlayerBar() {
 
         {/* Right: Volume & Expand View */}
         <div className="hidden sm:flex items-center gap-3">
-          <button onClick={toggleMute} className="text-slate-400 hover:text-white transition-colors">
+          <button
+            type="button"
+            onClick={toggleMute}
+            aria-label={isMuted || volume === 0 ? 'Bật âm thanh' : 'Tắt âm thanh'}
+            className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+          >
             {isMuted || volume === 0 ? (
               <VolumeX className="w-4 h-4 text-[#FE2C55]" />
             ) : (
@@ -178,13 +205,16 @@ export default function BottomPlayerBar() {
             step="0.01"
             value={isMuted ? 0 : volume}
             onChange={(e) => setVolumeLevel(parseFloat(e.target.value))}
+            aria-label="Âm lượng"
             className="w-20 accent-[#8B5CF6] h-1.5 bg-[#1B2544] rounded-lg cursor-pointer"
           />
 
           <button
+            type="button"
             onClick={() => setActiveTab('player')}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-[#161F36] transition-colors"
+            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-[#161F36] transition-colors cursor-pointer"
             title="Mở toàn màn hình"
+            aria-label="Mở toàn màn hình"
           >
             <Maximize2 className="w-4 h-4" />
           </button>

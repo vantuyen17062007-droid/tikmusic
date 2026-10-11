@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { findUserByEmail, createDbSession } from '@/lib/db';
-import { verifyPassword, signSessionToken, checkRateLimit, SESSION_COOKIE_NAME } from '@/lib/auth';
+import { findUserByEmail, createDbSession, checkDbRateLimit, cleanExpiredSessions } from '@/lib/db';
+import { verifyPassword, signSessionToken, getClientIp, verifyCsrfOrigin, SESSION_COOKIE_NAME } from '@/lib/auth';
 import crypto from 'crypto';
 
 const loginSchema = z.object({
@@ -12,9 +12,17 @@ const loginSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection: Kiểm tra header Origin cho yêu cầu POST
+    if (!verifyCsrfOrigin(req)) {
+      return NextResponse.json(
+        { success: false, message: 'Yêu cầu bị từ chối do vi phạm bảo mật CSRF.' },
+        { status: 403 }
+      );
+    }
+
     // Client IP for rate limiting
-    const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
-    const rateCheck = checkRateLimit(`login_${ip}`, 5, 60 * 1000);
+    const ip = getClientIp(req);
+    const rateCheck = await checkDbRateLimit(`login_${ip}`, 5, 60 * 1000);
 
     if (!rateCheck.allowed) {
       return NextResponse.json(
@@ -94,6 +102,9 @@ export async function POST(req: NextRequest) {
       token,
       expiresAt,
     });
+
+    // A7: Dọn các phiên hết hạn trong database
+    await cleanExpiredSessions();
 
     // Create response
     const response = NextResponse.json({

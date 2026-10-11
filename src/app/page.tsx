@@ -15,16 +15,26 @@ import SettingsScreen from '../components/SettingsScreen';
 import ExploreScreen from '../components/ExploreScreen';
 import BottomPlayerBar from '../components/BottomPlayerBar';
 import DownloadModal from '../components/DownloadModal';
+import AddToPlaylistModal from '../components/AddToPlaylistModal';
 import MobileNavBar from '../components/MobileNavBar';
-import { LayoutGrid, Download, Music } from 'lucide-react';
+import { LayoutGrid, Music, Info } from 'lucide-react';
 import { ActiveTab } from '../types';
 
 export default function Home() {
-  const { activeTab, setActiveTab, openDownloadModal } = useMusic();
+  const { activeTab, setActiveTab, toastMessage } = useMusic();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isDev = process.env.NODE_ENV === 'development';
 
   return (
-    <div className="flex min-h-screen bg-[#0B0E17] text-white">
+    <div className="flex min-h-screen bg-[#0B0E17] text-white relative">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-[#182138]/95 border border-[#8B5CF6]/50 text-white text-xs sm:text-sm font-semibold shadow-2xl shadow-[#8B5CF6]/30 flex items-center gap-2 backdrop-blur-xl animate-in fade-in slide-in-from-top-2">
+          <Info className="w-4 h-4 text-[#25F4EE]" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Desktop Sidebar */}
       <Sidebar />
 
@@ -45,7 +55,7 @@ export default function Home() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold tracking-tight text-white">TikMusic</h1>
-                  <p className="text-[11px] text-slate-400">Tải nhạc từ TikTok</p>
+                  <p className="text-[11px] text-slate-400">Nghe & tải nhạc TikTok</p>
                 </div>
               </div>
 
@@ -83,69 +93,53 @@ export default function Home() {
         {/* Top Header */}
         <Header onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
 
-        {/* View Switcher Bar (Quick view preview matching the 5 mockups in user prompt) */}
-        <div className="px-4 sm:px-8 pt-4 pb-2">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-            <span className="text-xs font-semibold text-slate-400 shrink-0 flex items-center gap-1 mr-1">
-              <LayoutGrid className="w-3.5 h-3.5 text-[#8B5CF6]" />
-              Màn hình mẫu:
-            </span>
-            <button
-              onClick={() => setActiveTab('home')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-all ${
-                activeTab === 'home'
-                  ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/30'
-                  : 'bg-[#121829] hover:bg-[#1C2642] text-slate-300'
-              }`}
-            >
-              Trang chủ
-            </button>
-            <button
-              onClick={() => setActiveTab('search')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-all ${
-                activeTab === 'search'
-                  ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/30'
-                  : 'bg-[#121829] hover:bg-[#1C2642] text-slate-300'
-              }`}
-            >
-              Kết quả tìm kiếm
-            </button>
-            <button
-              onClick={() => setActiveTab('player')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-all ${
-                activeTab === 'player'
-                  ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/30'
-                  : 'bg-[#121829] hover:bg-[#1C2642] text-slate-300'
-              }`}
-            >
-              Trang phát nhạc
-            </button>
-            <button
-              onClick={() => openDownloadModal()}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 bg-[#121829] hover:bg-[#1C2642] text-slate-300 transition-all flex items-center gap-1 text-[#25F4EE]"
-            >
-              <Download className="w-3 h-3" />
-              Tải nhạc từ video TikTok (Modal)
-            </button>
-            <button
-              onClick={() => setActiveTab('playlist')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-all ${
-                activeTab === 'playlist'
-                  ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/30'
-                  : 'bg-[#121829] hover:bg-[#1C2642] text-slate-300'
-              }`}
-            >
-              Playlist của tôi
-            </button>
+        {/* E4: View Switcher Bar chỉ hiển thị khi NODE_ENV === 'development' */}
+        {isDev && (
+          <div className="px-4 sm:px-8 pt-3 pb-1">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+              <span className="text-[11px] font-semibold text-slate-500 shrink-0 flex items-center gap-1 mr-1">
+                <LayoutGrid className="w-3 h-3 text-[#8B5CF6]" />
+                Dev Preview:
+              </span>
+              {[
+                { id: 'home' as ActiveTab, label: 'Trang chủ' },
+                { id: 'explore' as ActiveTab, label: 'Khám phá' },
+                { id: 'search' as ActiveTab, label: 'Tìm kiếm' },
+                { id: 'player' as ActiveTab, label: 'Đang phát' },
+                { id: 'playlist' as ActiveTab, label: 'Playlist' },
+                { id: 'downloads' as ActiveTab, label: 'Tải xuống' },
+                { id: 'settings' as ActiveTab, label: 'Cài đặt' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium shrink-0 transition-all ${
+                    activeTab === tab.id
+                      ? 'bg-[#8B5CF6] text-white shadow-sm'
+                      : 'bg-[#121829] hover:bg-[#1C2642] text-slate-400'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Dynamic Screen Container */}
         <main className="flex-1 px-4 sm:px-8 py-4 max-w-7xl w-full mx-auto">
           {activeTab === 'home' && (
             <div className="space-y-10 animate-in fade-in duration-200">
               <HeroBanner />
-              <TrendingMusic songs={MOCK_SONGS} />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  {/* E5: Ghi chú dữ liệu mẫu */}
+                  <span className="text-[11px] text-slate-500 italic">
+                    * Danh mục bài hát minh họa để trải nghiệm
+                  </span>
+                </div>
+                <TrendingMusic songs={MOCK_SONGS} />
+              </div>
             </div>
           )}
 
@@ -192,6 +186,9 @@ export default function Home() {
 
       {/* Download Quality Modal */}
       <DownloadModal />
+
+      {/* Add To Playlist Modal */}
+      <AddToPlaylistModal />
 
       {/* Mobile Bottom Navigation */}
       <MobileNavBar />

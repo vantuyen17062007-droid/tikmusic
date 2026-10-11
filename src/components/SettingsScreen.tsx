@@ -12,6 +12,41 @@ export default function SettingsScreen() {
   const [autoDownload, setAutoDownload] = useState(true);
   const [notifications, setNotifications] = useState(false);
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const q = localStorage.getItem('tikmusic_quality');
+      if (q) setDefaultQuality(q);
+      const ad = localStorage.getItem('tikmusic_autodownload');
+      if (ad !== null) setAutoDownload(ad === 'true');
+      const notif = localStorage.getItem('tikmusic_notifications');
+      if (notif !== null) setNotifications(notif === 'true');
+    }
+  }, []);
+
+  const handleQualityChange = (q: string) => {
+    setDefaultQuality(q);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tikmusic_quality', q);
+    }
+  };
+
+  const handleAutoDownloadChange = (val: boolean) => {
+    setAutoDownload(val);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tikmusic_autodownload', String(val));
+    }
+  };
+
+  const handleNotificationsChange = (val: boolean) => {
+    setNotifications(val);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tikmusic_notifications', String(val));
+      if (val && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
+    }
+  };
+
   return (
     <div className="max-w-3xl space-y-8">
       <div className="pb-4 border-b border-[#1B2544]">
@@ -53,8 +88,8 @@ export default function SettingsScreen() {
                 <div>
                   <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
                     {user.name}
-                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#25F4EE]/15 text-[#25F4EE] font-semibold flex items-center gap-0.5">
-                      <Shield className="w-2.5 h-2.5" /> Pro
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#8B5CF6]/15 text-[#A855F7] font-semibold flex items-center gap-0.5">
+                      <Shield className="w-2.5 h-2.5" /> Thành viên
                     </span>
                   </h4>
                   <p className="text-xs text-slate-400">{user.email}</p>
@@ -100,7 +135,7 @@ export default function SettingsScreen() {
             <Volume2 className="w-5 h-5 text-[#8B5CF6]" />
             <div>
               <h3 className="text-base font-bold text-white">Chất lượng tải mặc định</h3>
-              <p className="text-xs text-slate-400">Độ phân giải âm thanh khi bấm tải nhanh từ link TikTok</p>
+              <p className="text-xs text-slate-400">Tùy chọn mức chất lượng mong muốn khi tải file âm thanh</p>
             </div>
           </div>
 
@@ -108,13 +143,13 @@ export default function SettingsScreen() {
             {[
               { id: '128', label: '128 kbps', desc: 'Tiết kiệm bộ nhớ' },
               { id: '192', label: '192 kbps', desc: 'Chuẩn âm thanh tốt' },
-              { id: '320', label: '320 kbps', desc: 'Cực sắc nét (Studio)' },
+              { id: '320', label: '320 kbps', desc: 'Chất lượng cao nhất' },
             ].map((item) => (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setDefaultQuality(item.id)}
-                className={`p-3 rounded-xl border text-left transition-all ${
+                onClick={() => handleQualityChange(item.id)}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                   defaultQuality === item.id
                     ? 'border-[#8B5CF6] bg-[#8B5CF6]/15 text-white'
                     : 'border-[#222E52] bg-[#0E1528] text-slate-300 hover:border-slate-500'
@@ -141,12 +176,12 @@ export default function SettingsScreen() {
             <div className="flex items-center justify-between p-3 rounded-xl bg-[#0B0F1D]">
               <div>
                 <p className="text-sm font-semibold text-white">Tự động gắn thẻ ID3 (Tag nhạc)</p>
-                <p className="text-xs text-slate-400">Tự động thêm tên ca sĩ, tiêu đề và ảnh bìa vào file MP3</p>
+                <p className="text-xs text-slate-400">Tự động lưu tên ca sĩ, tiêu đề và thông tin bài hát</p>
               </div>
               <input
                 type="checkbox"
                 checked={autoDownload}
-                onChange={(e) => setAutoDownload(e.target.checked)}
+                onChange={(e) => handleAutoDownloadChange(e.target.checked)}
                 className="w-5 h-5 accent-[#8B5CF6] rounded cursor-pointer"
               />
             </div>
@@ -159,7 +194,7 @@ export default function SettingsScreen() {
               <input
                 type="checkbox"
                 checked={notifications}
-                onChange={(e) => setNotifications(e.target.checked)}
+                onChange={(e) => handleNotificationsChange(e.target.checked)}
                 className="w-5 h-5 accent-[#8B5CF6] rounded cursor-pointer"
               />
             </div>

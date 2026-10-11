@@ -13,8 +13,10 @@ import {
   VolumeX,
   ArrowLeft,
   Share2,
+  ListPlus,
 } from 'lucide-react';
 import { useMusic } from '../context/MusicContext';
+import { formatTime } from '../lib/utils';
 import Image from 'next/image';
 
 export default function NowPlayingScreen() {
@@ -40,18 +42,25 @@ export default function NowPlayingScreen() {
     toggleLike,
     isLiked,
     setActiveTab,
+    openAddToPlaylistModal,
+    showToast,
   } = useMusic();
 
   if (!currentSong) return null;
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
-
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const liked = isLiked(currentSong.id);
+
+  const handleShare = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        navigator.clipboard?.writeText(window.location.href);
+        showToast('Đã sao chép liên kết bài hát vào bộ nhớ tạm!');
+      } catch {
+        showToast('Không thể sao chép liên kết.');
+      }
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
@@ -59,7 +68,7 @@ export default function NowPlayingScreen() {
       <div className="flex items-center justify-between">
         <button
           onClick={() => setActiveTab('home')}
-          className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+          className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Quay lại</span>
@@ -68,8 +77,10 @@ export default function NowPlayingScreen() {
           Đang phát từ TikTok
         </h2>
         <button
-          className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-[#161F36] transition-colors"
-          title="Chia sẻ"
+          onClick={handleShare}
+          className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-[#161F36] transition-colors cursor-pointer"
+          title="Chia sẻ liên kết bài hát"
+          aria-label="Chia sẻ liên kết bài hát"
         >
           <Share2 className="w-4 h-4" />
         </button>
@@ -92,24 +103,36 @@ export default function NowPlayingScreen() {
           />
         </div>
 
-        {/* Title & Artist & Favorite */}
+        {/* Title & Artist & Favorite & Add to playlist */}
         <div className="w-full max-w-md flex items-center justify-between mb-6">
-          <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+          <div className="space-y-1 min-w-0 flex-1 pr-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight truncate">
               {currentSong.title}
             </h1>
-            <p className="text-base text-slate-400 font-medium">{currentSong.artist}</p>
+            <p className="text-base text-slate-400 font-medium truncate">{currentSong.artist}</p>
           </div>
-          <button
-            onClick={() => toggleLike(currentSong.id)}
-            className={`p-3 rounded-full backdrop-blur-md transition-all ${
-              liked
-                ? 'bg-[#FE2C55]/20 text-[#FE2C55] scale-110'
-                : 'bg-[#161F36] text-slate-400 hover:text-white'
-            }`}
-          >
-            <Heart className={`w-6 h-6 ${liked ? 'fill-[#FE2C55]' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openAddToPlaylistModal(currentSong)}
+              className="p-3 rounded-full bg-[#161F36] text-slate-400 hover:text-white transition-all cursor-pointer"
+              title="Thêm vào playlist"
+              aria-label="Thêm vào playlist"
+            >
+              <ListPlus className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => toggleLike(currentSong.id)}
+              className={`p-3 rounded-full backdrop-blur-md transition-all cursor-pointer ${
+                liked
+                  ? 'bg-[#FE2C55]/20 text-[#FE2C55] scale-110'
+                  : 'bg-[#161F36] text-slate-400 hover:text-white'
+              }`}
+              title={liked ? 'Bỏ thích' : 'Thích bài hát'}
+              aria-label={liked ? 'Bỏ thích' : 'Thích bài hát'}
+            >
+              <Heart className={`w-5 h-5 ${liked ? 'fill-[#FE2C55]' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {/* Progress Slider */}

@@ -4,8 +4,8 @@ import { MusicProvider } from '../context/MusicContext';
 import { AuthProvider } from '../context/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'TikMusic - Tải nhạc từ TikTok - Nghe mọi lúc',
-  description: 'Nền tảng tải và thưởng thức nhạc từ TikTok nhanh chóng, miễn phí và chất lượng cao 320kbps.',
+  title: 'TikMusic - Nghe và khám phá âm nhạc TikTok',
+  description: 'Nền tảng tìm kiếm, nghe và trải nghiệm âm nhạc TikTok trực quan, hiện đại.',
 };
 
 export default function RootLayout({

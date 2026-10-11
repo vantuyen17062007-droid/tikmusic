@@ -4,6 +4,7 @@ import React from 'react';
 import { Home, Compass, ListMusic, Download, Settings, Headphones } from 'lucide-react';
 import { useMusic } from '../context/MusicContext';
 import { ActiveTab } from '../types';
+import TikTokIcon from './TikTokIcon';
 
 export default function Sidebar() {
   const { activeTab, setActiveTab } = useMusic();
@@ -26,9 +27,7 @@ export default function Sidebar() {
         >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#FE2C55] via-[#25F4EE] to-[#8B5CF6] p-[2px] shadow-lg shadow-[#8B5CF6]/20 group-hover:shadow-[#8B5CF6]/40 transition-all">
             <div className="w-full h-full bg-[#0B0E17] rounded-[10px] flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.589 6.686a4.793 4.793 0 0 1-3.77-4.245V2h-3.445v13.672a2.896 2.896 0 0 1-5.209 1.74 2.895 2.895 0 0 1 2.313-4.636c.298 0 .586.046.857.13V9.378a6.34 6.34 0 0 0-.857-.058 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.336-6.34V8.375a8.196 8.196 0 0 0 4.775 1.524V6.454a4.823 4.823 0 0 1-1-.068z" />
-              </svg>
+              <TikTokIcon className="w-5 h-5 text-white" />
             </div>
           </div>
           <div>

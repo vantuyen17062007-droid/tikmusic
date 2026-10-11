@@ -7,7 +7,7 @@ import { MOCK_SONGS } from '../data/mockData';
 import TrendingMusic from './TrendingMusic';
 
 export default function ExploreScreen() {
-  const { handleSearch } = useMusic();
+  const { filterByCategory } = useMusic();
 
   const categories = [
     { name: 'TikTok Trend 2024', count: '150+ bài', color: 'from-[#FE2C55] to-[#FF007F]' },
@@ -25,7 +25,7 @@ export default function ExploreScreen() {
         <div className="space-y-2 relative z-10 max-w-xl">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#8B5CF6]/20 border border-[#8B5CF6]/40 text-[#A855F7] text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Thịnh hành trên TikTok</span>
+            <span>Thịnh hành trên TikTok (Dữ liệu minh họa)</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
             Khám phá thế giới âm nhạc TikTok
@@ -38,16 +38,28 @@ export default function ExploreScreen() {
 
       {/* Category Cards */}
       <div className="space-y-4">
-        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-[#25F4EE]" />
-          Chủ đề nổi bật
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-[#25F4EE]" />
+            Chủ đề nổi bật
+          </h3>
+          <span className="text-xs text-slate-400">Dữ liệu minh họa</span>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
           {categories.map((cat, idx) => (
             <div
               key={idx}
-              onClick={() => handleSearch(cat.name.split(' ')[0])}
-              className={`p-4 rounded-2xl bg-gradient-to-br ${cat.color} cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-lg flex flex-col justify-between h-28 group`}
+              role="button"
+              tabIndex={0}
+              onClick={() => filterByCategory(cat.name)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  filterByCategory(cat.name);
+                }
+              }}
+              aria-label={`Khám phá thể loại ${cat.name}`}
+              className={`p-4 rounded-2xl bg-gradient-to-br ${cat.color} cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-lg flex flex-col justify-between h-28 group outline-none focus:ring-2 focus:ring-white/50`}
             >
               <Music className="w-6 h-6 text-white/80 group-hover:rotate-12 transition-transform" />
               <div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Download, Play, Pause, Music2 } from 'lucide-react';
+import { Download, Play, Pause, Music2, ListPlus } from 'lucide-react';
 import { useMusic } from '../context/MusicContext';
 import { Song } from '../types';
 import Image from 'next/image';
@@ -15,13 +15,21 @@ export default function SearchResults() {
     playSong,
     togglePlay,
     openDownloadModal,
+    openAddToPlaylistModal,
   } = useMusic();
 
   const handlePlaySong = (song: Song) => {
     if (currentSong?.id === song.id) {
       togglePlay();
     } else {
-      playSong(song);
+      playSong(song, searchResults);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, song: Song) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handlePlaySong(song);
     }
   };
 
@@ -31,15 +39,32 @@ export default function SearchResults() {
       <div className="flex items-center justify-between pb-4 border-b border-[#1B2544]">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            Kết quả tìm kiếm cho &ldquo;<span className="text-[#8B5CF6]">{searchQuery || 'sơn tùng'}</span>&rdquo;
+            {searchQuery.trim() ? (
+              <>
+                Kết quả tìm kiếm cho &ldquo;<span className="text-[#8B5CF6]">{searchQuery}</span>&rdquo;
+              </>
+            ) : (
+              'Tìm kiếm bài hát'
+            )}
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Tìm thấy {searchResults.length} bài hát phù hợp
+            {searchQuery.trim()
+              ? `Tìm thấy ${searchResults.length} bài hát phù hợp`
+              : 'Nhập tên bài hát, nghệ sĩ hoặc dán đường dẫn TikTok để tìm kiếm'}
           </p>
         </div>
       </div>
 
-      {searchResults.length === 0 ? (
+      {/* D8: Khi chưa tìm kiếm hoặc không có kết quả */}
+      {!searchQuery.trim() ? (
+        <div className="py-20 text-center space-y-3 bg-[#121829]/50 rounded-2xl border border-[#222E52]/40">
+          <Music2 className="w-12 h-12 text-[#8B5CF6]/60 mx-auto" />
+          <h3 className="text-lg font-semibold text-white">Nhập từ khóa để tìm bài hát</h3>
+          <p className="text-sm text-slate-400 max-w-md mx-auto">
+            Sử dụng ô tìm kiếm ở thanh điều hướng trên cùng để tìm theo tên ca sĩ, tựa bài hát hoặc thể loại âm nhạc.
+          </p>
+        </div>
+      ) : searchResults.length === 0 ? (
         <div className="py-20 text-center space-y-3 bg-[#121829]/50 rounded-2xl border border-[#222E52]/40">
           <Music2 className="w-12 h-12 text-slate-500 mx-auto" />
           <h3 className="text-lg font-semibold text-white">Không tìm thấy bài hát nào</h3>
@@ -64,8 +89,12 @@ export default function SearchResults() {
               >
                 {/* Left: Thumbnail & Info */}
                 <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handlePlaySong(song)}
-                  className="flex items-center gap-3.5 flex-1 min-w-0 cursor-pointer"
+                  onKeyDown={(e) => handleKeyDown(e, song)}
+                  aria-label={`Phát ${song.title} - ${song.artist}`}
+                  className="flex items-center gap-3.5 flex-1 min-w-0 cursor-pointer outline-none"
                 >
                   <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shrink-0 bg-[#0B0E17]">
                     <Image
@@ -106,14 +135,22 @@ export default function SearchResults() {
                   </div>
                 </div>
 
-                {/* Right: Download Button */}
+                {/* Right: Actions */}
                 <div className="flex items-center gap-2 pl-3">
                   <button
+                    onClick={() => openAddToPlaylistModal(song)}
+                    className="p-2 rounded-xl bg-[#1B2544]/60 hover:bg-[#8B5CF6] text-slate-300 hover:text-white transition-all cursor-pointer"
+                    title="Thêm vào playlist"
+                    aria-label="Thêm vào playlist"
+                  >
+                    <ListPlus className="w-4 h-4" />
+                  </button>
+                  <button
                     onClick={() => openDownloadModal(song)}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#6D28D9] to-[#8B5CF6] hover:from-[#7C3AED] hover:to-[#A855F7] text-white text-xs sm:text-sm font-semibold shadow-md shadow-[#7C3AED]/30 flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
+                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#6D28D9] to-[#8B5CF6] hover:from-[#7C3AED] hover:to-[#A855F7] text-white text-xs sm:text-sm font-semibold shadow-md shadow-[#7C3AED]/30 flex items-center gap-1.5 transition-all active:scale-95 shrink-0 cursor-pointer"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Tải nhạc</span>
+                    <span className="hidden sm:inline">Tải nhạc</span>
                   </button>
                 </div>
               </div>

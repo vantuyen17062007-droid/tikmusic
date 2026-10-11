@@ -113,36 +113,76 @@ export async function validateSession(token: string): Promise<SessionPayload | n
   return jwtPayload;
 }
 
-// Rate Limiter
-interface RateLimitRecord {
-  count: number;
-  resetAt: number;
-}
-
-const rateLimitStore = new Map<string, RateLimitRecord>();
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Rate Limiter theo IP cho các API nhạy cảm.
- * Lưu ý: Trong môi trường serverless đa instance, bộ nhớ này giới hạn theo từng container.
+ * Lấy IP khách hàng chuẩn xác từ headers:
+ * 1. Ưu tiên x-real-ip do reverse proxy/hosting đặt.
+ * 2. Lấy phần tử đầu tiên của chuỗi x-forwarded-for sau khi split dấu phẩy và trim.
  */
-export function checkRateLimit(
-  key: string,
-  maxAttempts: number = 5,
-  windowMs: number = 60 * 1000
-): { allowed: boolean; retryAfterSec?: number } {
-  const now = Date.now();
-  const record = rateLimitStore.get(key);
-
-  if (!record || now > record.resetAt) {
-    rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
-    return { allowed: true };
+export function getClientIp(req: NextRequest): string {
+  const realIp = req.headers.get('x-real-ip');
+  if (realIp && realIp.trim()) {
+    return realIp.trim();
   }
 
-  if (record.count >= maxAttempts) {
-    const retryAfterSec = Math.ceil((record.resetAt - now) / 1000);
-    return { allowed: false, retryAfterSec };
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded && forwarded.trim()) {
+    const firstIp = forwarded.split(',')[0].trim();
+    if (firstIp) return firstIp;
   }
 
-  record.count += 1;
-  return { allowed: true };
+  return '127.0.0.1';
+}
+
+/**
+ * Kiểm tra CSRF cho các yêu cầu thay đổi dữ liệu (POST, PATCH, DELETE, PUT).
+ * Kiểm tra header Origin có khớp với Host/X-Forwarded-Host của request hay không.
+ */
+export function verifyCsrfOrigin(req: NextRequest): boolean {
+  const origin = req.headers.get('origin');
+  if (!origin) {
+    // Không có header origin (ví dụ server-to-server, script nội bộ)
+    return true;
+  }
+
+  try {
+    const originUrl = new URL(origin);
+    const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
+    const cleanHost = host.split(':')[0].toLowerCase();
+    const cleanOriginHost = originUrl.hostname.toLowerCase();
+    return cleanHost === cleanOriginHost;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Helper dùng chung để bảo vệ các route yêu cầu xác thực.
+ * Trả về { user } nếu hợp lệ, hoặc { errorResponse } kèm mã 401.
+ */
+export async function requireUser(
+  req: NextRequest
+): Promise<{ user: SessionPayload; errorResponse?: never } | { user?: never; errorResponse: NextResponse }> {
+  const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+  if (!token) {
+    return {
+      errorResponse: NextResponse.json(
+        { success: false, message: 'Yêu cầu đăng nhập để truy cập tài nguyên này.' },
+        { status: 401 }
+      ),
+    };
+  }
+
+  const payload = await validateSession(token);
+  if (!payload || !payload.userId) {
+    const res = NextResponse.json(
+      { success: false, message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' },
+      { status: 401 }
+    );
+    res.cookies.delete(SESSION_COOKIE_NAME);
+    return { errorResponse: res };
+  }
+
+  return { user: payload };
 }
