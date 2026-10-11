@@ -13,6 +13,8 @@ export interface Song {
   fileSize128?: string;
   fileSize192?: string;
   fileSize320?: string;
+  isDemoSample?: boolean;
+  isVerifiedAudio?: boolean;
 }
 
 export interface Playlist {

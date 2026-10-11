@@ -19,10 +19,11 @@ interface MusicContextType {
   searchResults: Song[];
   downloadModalOpen: boolean;
   songToDownload: Song | null;
+  downloadNotice: string | null;
   downloadHistory: DownloadItem[];
   playlists: Playlist[];
   likedSongIds: string[];
-  
+
   // Actions
   playSong: (song: Song) => void;
   togglePlay: () => void;
@@ -35,48 +36,69 @@ interface MusicContextType {
   toggleRepeat: () => void;
   setActiveTab: (tab: ActiveTab) => void;
   handleSearch: (query: string) => void;
-  openDownloadModal: (song?: Song) => void;
+  openDownloadModal: (song?: Song, notice?: string) => void;
   closeDownloadModal: () => void;
   startDownload: (song: Song, quality: DownloadQuality) => void;
-  createPlaylist: (name: string) => void;
-  toggleLike: (songId: string) => void;
+  createPlaylist: (name: string) => Promise<void>;
+  toggleLike: (songId: string) => Promise<void>;
   isLiked: (songId: string) => boolean;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
 
 export function MusicProvider({ children }: { children: React.ReactNode }) {
-  const [currentSong, setCurrentSong] = useState<Song | null>(MOCK_SONGS[0]); // default to "Một đêm say"
+  const [currentSong, setCurrentSong] = useState<Song | null>(MOCK_SONGS[0]);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [currentTime, setCurrentTime] = useState<number>(92); // 1:32 default from mockup
-  const [duration, setDuration] = useState<number>(165); // 2:45
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [duration, setDuration] = useState<number>(165);
   const [volume, setVolume] = useState<number>(0.8);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
   const [isRepeat, setIsRepeat] = useState<boolean>(false);
   const [queue] = useState<Song[]>(MOCK_SONGS);
-  
+
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [searchQuery, setSearchQuery] = useState<string>('sơn tùng');
   const [searchResults, setSearchResults] = useState<Song[]>(
     MOCK_SONGS.filter((s) => s.artist.toLowerCase().includes('sơn tùng'))
   );
-  
+
   const [downloadModalOpen, setDownloadModalOpen] = useState<boolean>(false);
   const [songToDownload, setSongToDownload] = useState<Song | null>(null);
+  const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const [downloadHistory, setDownloadHistory] = useState<DownloadItem[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>(MOCK_PLAYLISTS);
   const [likedSongIds, setLikedSongIds] = useState<string[]>(['song-1', 'song-3']);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isRepeatRef = useRef<boolean>(false);
+  const isShuffleRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    isRepeatRef.current = isRepeat;
+  }, [isRepeat]);
+
+  useEffect(() => {
+    isShuffleRef.current = isShuffle;
+  }, [isShuffle]);
 
   const playNextRef = useRef<() => void>(() => {});
   playNextRef.current = () => {
     if (!currentSong) return;
+
+    // Chế độ lặp lại bài hát hiện tại
+    if (isRepeatRef.current) {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {});
+      }
+      return;
+    }
+
     const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
     if (currentIndex === -1) return;
 
-    if (isShuffle) {
+    if (isShuffleRef.current) {
       const randomIndex = Math.floor(Math.random() * queue.length);
       playSong(queue[randomIndex]);
     } else {
@@ -85,45 +107,110 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Initialize Audio
+  // Khởi tạo Audio Element và đồng bộ sự kiện chuẩn HTML5
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      audioRef.current = new Audio();
-      const audio = audioRef.current;
+      const audio = new Audio();
+      audioRef.current = audio;
 
-      audio.addEventListener('timeupdate', () => {
-        setCurrentTime(audio.currentTime);
-      });
-
-      audio.addEventListener('loadedmetadata', () => {
+      const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+      const onLoadedMetadata = () => {
         if (audio.duration && !isNaN(audio.duration)) {
           setDuration(audio.duration);
         }
-      });
+      };
+      const onPlay = () => setIsPlaying(true);
+      const onPause = () => setIsPlaying(false);
+      const onEnded = () => playNextRef.current();
+      const onError = (e: Event) => {
+        setIsPlaying(false);
+        console.warn('Audio playback error encountered:', e);
+      };
 
-      audio.addEventListener('ended', () => {
-        playNextRef.current();
-      });
+      audio.addEventListener('timeupdate', onTimeUpdate);
+      audio.addEventListener('loadedmetadata', onLoadedMetadata);
+      audio.addEventListener('play', onPlay);
+      audio.addEventListener('pause', onPause);
+      audio.addEventListener('ended', onEnded);
+      audio.addEventListener('error', onError);
 
       return () => {
+        audio.removeEventListener('timeupdate', onTimeUpdate);
+        audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+        audio.removeEventListener('play', onPlay);
+        audio.removeEventListener('pause', onPause);
+        audio.removeEventListener('ended', onEnded);
+        audio.removeEventListener('error', onError);
         audio.pause();
         audio.src = '';
       };
     }
   }, []);
 
+  // Đồng bộ Playlists và Likes với server khi mount
+  useEffect(() => {
+    async function syncUserData() {
+      try {
+        const [plRes, likesRes] = await Promise.all([
+          fetch('/api/playlists'),
+          fetch('/api/likes'),
+        ]);
+
+        if (plRes.ok) {
+          const plData = await plRes.json();
+          if (plData.playlists && plData.playlists.length > 0) {
+            interface ServerPlaylist {
+              id: string;
+              name: string;
+              cover_url: string;
+              songCount?: number;
+            }
+            const serverPls: Playlist[] = plData.playlists.map((p: ServerPlaylist) => ({
+              id: p.id,
+              name: p.name,
+              songCount: p.songCount || 0,
+              coverUrl: p.cover_url,
+              songs: [],
+              updatedAt: 'Đã lưu trên tài khoản',
+            }));
+            setPlaylists((prev) => [
+              ...serverPls,
+              ...prev.filter((d) => !serverPls.some((u) => u.id === d.id)),
+            ]);
+          }
+        }
+
+        if (likesRes.ok) {
+          const likesData = await likesRes.json();
+          if (likesData.likedSongIds && Array.isArray(likesData.likedSongIds)) {
+            setLikedSongIds(likesData.likedSongIds);
+          }
+        }
+      } catch {
+        // Guest mode fallback
+      }
+    }
+
+    syncUserData();
+  }, []);
+
   const playSong = (song: Song) => {
     setCurrentSong(song);
     setDuration(song.durationSec);
     setCurrentTime(0);
-    setIsPlaying(true);
 
     if (audioRef.current) {
       audioRef.current.src = song.audioUrl;
-      audioRef.current.play().catch(() => {
-        // Autoplay restrictions or demo audio fallback
-        console.log('Playback started');
-      });
+      audioRef.current.currentTime = 0;
+      audioRef.current
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch((err) => {
+          setIsPlaying(false);
+          console.warn('Autoplay prevented by browser or media source error:', err);
+        });
     }
   };
 
@@ -135,10 +222,14 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
 
     if (isPlaying) {
       audioRef.current?.pause();
-      setIsPlaying(false);
     } else {
-      audioRef.current?.play().catch(() => {});
-      setIsPlaying(true);
+      audioRef.current
+        ?.play()
+        .then(() => setIsPlaying(true))
+        .catch((err) => {
+          setIsPlaying(false);
+          console.warn('Play was prevented:', err);
+        });
     }
   };
 
@@ -150,12 +241,14 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setVolumeLevel = (vol: number) => {
-    setVolume(vol);
+    const clamped = Math.max(0, Math.min(1, vol));
+    setVolume(clamped);
     if (audioRef.current) {
-      audioRef.current.volume = vol;
+      audioRef.current.volume = clamped;
     }
-    if (vol > 0 && isMuted) {
+    if (clamped > 0 && isMuted) {
       setIsMuted(false);
+      if (audioRef.current) audioRef.current.muted = false;
     }
   };
 
@@ -167,17 +260,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
   };
 
   const playNext = () => {
-    if (!currentSong) return;
-    const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
-    if (currentIndex === -1) return;
-
-    if (isShuffle) {
-      const randomIndex = Math.floor(Math.random() * queue.length);
-      playSong(queue[randomIndex]);
-    } else {
-      const nextIndex = (currentIndex + 1) % queue.length;
-      playSong(queue[nextIndex]);
-    }
+    playNextRef.current();
   };
 
   const playPrevious = () => {
@@ -208,13 +291,15 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
     setActiveTab('search');
   };
 
-  const openDownloadModal = (song?: Song) => {
+  const openDownloadModal = (song?: Song, notice?: string) => {
     setSongToDownload(song || currentSong || MOCK_SONGS[0]);
+    setDownloadNotice(notice || null);
     setDownloadModalOpen(true);
   };
 
   const closeDownloadModal = () => {
     setDownloadModalOpen(false);
+    setDownloadNotice(null);
   };
 
   const startDownload = (song: Song, quality: DownloadQuality) => {
@@ -235,35 +320,60 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
     };
 
     setDownloadHistory((prev) => [newItem, ...prev]);
-
-    // Create realistic virtual download
-    const element = document.createElement('a');
-    element.setAttribute('href', song.audioUrl);
-    element.setAttribute('download', `${song.artist} - ${song.title} (${quality}kbps).mp3`);
-    element.style.display = 'none';
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-
-    closeDownloadModal();
   };
 
-  const createPlaylist = (name: string) => {
-    const newPlaylist: Playlist = {
+  const createPlaylist = async (name: string) => {
+    try {
+      const res = await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.playlist) {
+          const newPl: Playlist = {
+            id: data.playlist.id,
+            name: data.playlist.name,
+            songCount: 0,
+            coverUrl: data.playlist.cover_url,
+            songs: [],
+            updatedAt: 'Đã lưu trên tài khoản',
+          };
+          setPlaylists((prev) => [newPl, ...prev]);
+          return;
+        }
+      }
+    } catch {
+      // Guest local fallback
+    }
+
+    const fallback: Playlist = {
       id: `pl-${Date.now()}`,
       name,
       songCount: 0,
       coverUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80',
       songs: [],
-      updatedAt: 'Vừa tạo',
+      updatedAt: 'Tạm thời',
     };
-    setPlaylists((prev) => [newPlaylist, ...prev]);
+    setPlaylists((prev) => [fallback, ...prev]);
   };
 
-  const toggleLike = (songId: string) => {
+  const toggleLike = async (songId: string) => {
     setLikedSongIds((prev) =>
       prev.includes(songId) ? prev.filter((id) => id !== songId) : [...prev, songId]
     );
+
+    try {
+      await fetch('/api/likes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ songId }),
+      });
+    } catch {
+      // offline/guest fallback
+    }
   };
 
   const isLiked = (songId: string) => likedSongIds.includes(songId);
@@ -285,6 +395,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         searchResults,
         downloadModalOpen,
         songToDownload,
+        downloadNotice,
         downloadHistory,
         playlists,
         likedSongIds,

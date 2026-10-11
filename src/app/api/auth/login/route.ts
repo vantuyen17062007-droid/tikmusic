@@ -26,7 +26,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, message: 'Dữ liệu yêu cầu không hợp lệ.' },
+        { status: 400 }
+      );
+    }
     const validation = loginSchema.safeParse(body);
 
     if (!validation.success) {

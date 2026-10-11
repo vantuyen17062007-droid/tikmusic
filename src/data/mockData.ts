@@ -1,5 +1,10 @@
 import { Song, Playlist } from '../types';
 
+/**
+ * Danh mục bài hát minh họa trong môi trường phát triển (Development / Demo).
+ * Lưu ý minh bạch: Các bài hát mẫu sử dụng các đoạn âm thanh royalty-free ambient
+ * để phục vụ thử nghiệm giao diện và trình phát HTML5 khi chưa kết nối API bản quyền TikTok.
+ */
 export const MOCK_SONGS: Song[] = [
   {
     id: 'song-1',
@@ -8,10 +13,11 @@ export const MOCK_SONGS: Song[] = [
     duration: '2:45',
     durationSec: 165,
     coverUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=80',
-    audioUrl: 'https://actions.google.com/sounds/v1/ambiences/rain_heavy.ogg', // sample audio stream
+    audioUrl: 'https://actions.google.com/sounds/v1/ambiences/rain_heavy.ogg',
     tiktokViews: '12.4M',
     tiktokUser: '@rhyder_official',
     isHot: true,
+    isDemoSample: true,
     category: 'V-Pop',
     fileSize128: '2.5 MB',
     fileSize192: '3.7 MB',

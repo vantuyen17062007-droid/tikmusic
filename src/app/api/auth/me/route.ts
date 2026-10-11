@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { findUserById } from '@/lib/db';
-import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/auth';
+import { validateSession, SESSION_COOKIE_NAME } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ user: null });
     }
 
-    const payload = await verifySessionToken(token);
+    // Xác thực toàn diện: chữ ký JWT + kiểm tra phiên trong DB
+    const payload = await validateSession(token);
     if (!payload || !payload.userId) {
       const res = NextResponse.json({ user: null });
       res.cookies.delete(SESSION_COOKIE_NAME);

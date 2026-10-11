@@ -8,14 +8,37 @@ export default function HeroBanner() {
   const { openDownloadModal } = useMusic();
   const [tiktokUrl, setTiktokUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleDownloadClick = (e?: React.FormEvent) => {
+  const handleDownloadClick = async (e?: React.FormEvent, customUrl?: string) => {
     if (e) e.preventDefault();
+    setErrorMessage('');
+    const targetUrl = customUrl || tiktokUrl;
+
+    if (!targetUrl.trim()) {
+      setErrorMessage('Vui lòng dán link video TikTok.');
+      return;
+    }
+
     setIsProcessing(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/tiktok/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: targetUrl.trim() }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        openDownloadModal(data.data, data.message);
+      } else {
+        setErrorMessage(data.message || 'Không thể xử lý link TikTok này.');
+      }
+    } catch {
+      setErrorMessage('Lỗi kết nối máy chủ khi xử lý link TikTok.');
+    } finally {
       setIsProcessing(false);
-      openDownloadModal();
-    }, 600);
+    }
   };
 
   const sampleLinks = [
@@ -94,6 +117,19 @@ export default function HeroBanner() {
               </button>
             </div>
 
+            {errorMessage && (
+              <div className="p-3 rounded-xl bg-[#FE2C55]/10 border border-[#FE2C55]/30 text-[#FE2C55] text-xs font-medium flex items-center justify-between">
+                <span>{errorMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => setErrorMessage('')}
+                  className="text-slate-400 hover:text-white text-xs ml-2"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             {/* Quick Demo Link Pills */}
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <span className="flex items-center gap-1 text-slate-400 font-medium">
@@ -103,7 +139,7 @@ export default function HeroBanner() {
                 type="button"
                 onClick={() => {
                   setTiktokUrl(sampleLinks[0]);
-                  handleDownloadClick();
+                  handleDownloadClick(undefined, sampleLinks[0]);
                 }}
                 className="text-[#25F4EE] hover:underline hover:text-white transition-colors"
               >
@@ -114,7 +150,7 @@ export default function HeroBanner() {
                 type="button"
                 onClick={() => {
                   setTiktokUrl(sampleLinks[1]);
-                  handleDownloadClick();
+                  handleDownloadClick(undefined, sampleLinks[1]);
                 }}
                 className="text-[#FE2C55] hover:underline hover:text-white transition-colors"
               >

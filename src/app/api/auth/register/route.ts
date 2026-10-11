@@ -24,7 +24,15 @@ const registerSchema = z
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, message: 'Dữ liệu yêu cầu không hợp lệ.' },
+        { status: 400 }
+      );
+    }
 
     // Validate with Zod
     const validation = registerSchema.safeParse(body);

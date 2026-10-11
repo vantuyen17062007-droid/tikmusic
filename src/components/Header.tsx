@@ -44,12 +44,31 @@ export default function Header({ onToggleMobileMenu }: HeaderProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const [isSearchingLink, setIsSearchingLink] = useState(false);
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputVal.trim()) return;
 
     if (inputVal.includes('tiktok.com') || inputVal.includes('vt.tiktok.com')) {
-      openDownloadModal();
+      setIsSearchingLink(true);
+      try {
+        const res = await fetch('/api/tiktok/info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: inputVal.trim() }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          openDownloadModal(data.data, data.message);
+        } else {
+          alert(data.message || 'Không thể xử lý link TikTok này.');
+        }
+      } catch {
+        alert('Lỗi kết nối máy chủ.');
+      } finally {
+        setIsSearchingLink(false);
+      }
     } else {
       handleSearch(inputVal);
     }
@@ -93,9 +112,10 @@ export default function Header({ onToggleMobileMenu }: HeaderProps) {
             />
             <button
               type="submit"
-              className="absolute right-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#6D28D9] to-[#8B5CF6] hover:from-[#7C3AED] hover:to-[#A855F7] text-white text-xs font-semibold shadow-md shadow-[#7C3AED]/30 transition-all active:scale-95"
+              disabled={isSearchingLink}
+              className="absolute right-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#6D28D9] to-[#8B5CF6] hover:from-[#7C3AED] hover:to-[#A855F7] text-white text-xs font-semibold shadow-md shadow-[#7C3AED]/30 transition-all active:scale-95 disabled:opacity-50"
             >
-              Tìm kiếm
+              {isSearchingLink ? 'Đang tìm...' : 'Tìm kiếm'}
             </button>
           </div>
         </form>
