@@ -175,8 +175,17 @@ export default function PlaylistScreen() {
               >
                 {/* Thumbnail & Title */}
                 <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setSelectedPlaylist(playlist)}
-                  className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedPlaylist(playlist);
+                    }
+                  }}
+                  aria-label={`Xem danh sách phát ${playlist.name}`}
+                  className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer outline-none"
                 >
                   <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 bg-[#0B0E17]">
                     <Image
@@ -236,8 +245,17 @@ export default function PlaylistScreen() {
           {samplePlaylists.map((samplePl) => (
             <div
               key={samplePl.id}
+              role="button"
+              tabIndex={0}
               onClick={() => setSelectedPlaylist(samplePl)}
-              className="p-3.5 rounded-2xl bg-[#0E1528] hover:bg-[#141C33] border border-[#1E294B] hover:border-[#25F4EE]/40 transition-all flex items-center gap-3.5 cursor-pointer group"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setSelectedPlaylist(samplePl);
+                }
+              }}
+              aria-label={`Xem danh sách phát mẫu ${samplePl.name}`}
+              className="p-3.5 rounded-2xl bg-[#0E1528] hover:bg-[#141C33] border border-[#1E294B] hover:border-[#25F4EE]/40 transition-all flex items-center gap-3.5 cursor-pointer group outline-none"
             >
               <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0">
                 <Image
@@ -318,8 +336,17 @@ export default function PlaylistScreen() {
                   return (
                     <div
                       key={song.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handlePlaySongInPlaylist(song)}
-                      className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors group ${
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handlePlaySongInPlaylist(song);
+                        }
+                      }}
+                      aria-label={`Phát bài ${song.title}`}
+                      className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-colors group outline-none ${
                         isCurrent ? 'bg-[#8B5CF6]/20 border border-[#8B5CF6]/40' : 'hover:bg-[#182138]'
                       }`}
                     >

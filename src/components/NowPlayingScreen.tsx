@@ -244,8 +244,17 @@ export default function NowPlayingScreen() {
             return (
               <div
                 key={song.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => playSong(song)}
-                className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    playSong(song);
+                  }
+                }}
+                aria-label={`Phát bài ${song.title} - ${song.artist}`}
+                className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 outline-none ${
                   isPlayingThis
                     ? 'bg-[#182138] border border-[#8B5CF6]/50 text-white font-semibold'
                     : 'hover:bg-[#161F36] text-slate-300'

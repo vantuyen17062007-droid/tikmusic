@@ -53,6 +53,7 @@ interface MusicContextType {
   openDownloadModal: (song?: Song, notice?: string) => void;
   closeDownloadModal: () => void;
   startDownload: (song: Song, quality: DownloadQuality) => void;
+  triggerDirectDownload: (song: Song) => Promise<boolean>;
   createPlaylist: (name: string) => Promise<boolean>;
   deletePlaylist: (playlistId: string) => Promise<boolean>;
   addSongToPlaylist: (playlistId: string, song: Song) => Promise<{ success: boolean; message: string }>;
@@ -445,7 +446,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
   };
 
   // B4: Lưu lịch sử tải vào DB khi tải
-  const startDownload = (song: Song, quality: DownloadQuality) => {
+  const startDownload = useCallback((song: Song, quality: DownloadQuality) => {
     const sizeMap: Record<DownloadQuality, string> = {
       '128': song.fileSize128 || '2.5 MB',
       '192': song.fileSize192 || '3.7 MB',
@@ -474,7 +475,79 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         quality: `${quality} kbps`,
       }),
     }).catch(() => {});
-  };
+  }, []);
+
+  // Việc 1: Tải trực tiếp bài hát khi autoDownload được bật
+  const triggerDirectDownload = useCallback(
+    async (song: Song): Promise<boolean> => {
+      if (!song.audioUrl) {
+        showToast('Bài hát này chưa có nguồn âm thanh hợp lệ.');
+        return false;
+      }
+
+      try {
+        let quality: DownloadQuality = '320';
+        try {
+          const saved = localStorage.getItem('tikmusic_quality');
+          if (saved && ['128', '192', '320'].includes(saved)) {
+            quality = saved as DownloadQuality;
+          }
+        } catch {}
+
+        let extension = 'mp3';
+        if (song.audioUrl.endsWith('.ogg')) extension = 'ogg';
+        else if (song.audioUrl.endsWith('.wav')) extension = 'wav';
+
+        const fileName = `${song.artist} - ${song.title}.${extension}`;
+        const proxyUrl = `/api/audio/proxy?url=${encodeURIComponent(song.audioUrl)}&filename=${encodeURIComponent(fileName)}`;
+
+        const response = await fetch(proxyUrl);
+        if (!response.ok) {
+          let errText = 'Nguồn âm thanh không phản hồi hoặc bị hạn chế bản quyền.';
+          try {
+            const errJson = await response.json();
+            if (errJson.message) errText = errJson.message;
+          } catch {}
+          showToast(errText);
+          return false;
+        }
+
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+
+        startDownload(song, quality);
+
+        try {
+          const notifEnabled = localStorage.getItem('tikmusic_notifications') === 'true';
+          if (
+            notifEnabled &&
+            typeof window !== 'undefined' &&
+            'Notification' in window &&
+            Notification.permission === 'granted'
+          ) {
+            new Notification('TikMusic - Tải nhạc hoàn tất', {
+              body: `Đã tải xong bài hát: ${song.artist} - ${song.title}`,
+              icon: song.coverUrl,
+            });
+          }
+        } catch {}
+
+        showToast(`Đã tải xong: ${song.title}`);
+        return true;
+      } catch {
+        showToast('Lỗi mạng khi tải bài hát.');
+        return false;
+      }
+    },
+    [showToast, startDownload]
+  );
 
   // B2: Tạo playlist có đồng bộ server và thông báo
   const createPlaylist = async (name: string): Promise<boolean> => {
@@ -727,6 +800,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         openDownloadModal,
         closeDownloadModal,
         startDownload,
+        triggerDirectDownload,
         createPlaylist,
         deletePlaylist,
         addSongToPlaylist,

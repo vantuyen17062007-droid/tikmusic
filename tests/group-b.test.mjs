@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
 const testIp = `192.168.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250) + 1}`;
 const baseHeaders = { 'X-Forwarded-For': testIp };
 

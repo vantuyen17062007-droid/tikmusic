@@ -24,7 +24,7 @@ interface HeaderProps {
 }
 
 export default function Header({ onToggleMobileMenu }: HeaderProps) {
-  const { searchQuery, handleSearch, openDownloadModal, setActiveTab, showToast } = useMusic();
+  const { searchQuery, handleSearch, openDownloadModal, triggerDirectDownload, setActiveTab, showToast } = useMusic();
   const { user, logout, isLoading } = useAuth();
 
   const [inputVal, setInputVal] = useState(searchQuery);
@@ -61,8 +61,18 @@ export default function Header({ onToggleMobileMenu }: HeaderProps) {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-          openDownloadModal(data.data, data.message);
-          setMobileSearchOpen(false);
+          let isAuto = false;
+          try {
+            isAuto = typeof window !== 'undefined' && localStorage.getItem('tikmusic_autodownload') === 'true';
+          } catch {}
+
+          if (isAuto && data.data && data.data.audioUrl) {
+            await triggerDirectDownload(data.data);
+            setMobileSearchOpen(false);
+          } else {
+            openDownloadModal(data.data, data.message);
+            setMobileSearchOpen(false);
+          }
         } else {
           showToast(data.message || 'Không thể xử lý link TikTok này.');
         }

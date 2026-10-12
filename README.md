@@ -73,7 +73,7 @@ npm run dev
 ```
 Truy cập [http://localhost:3000](http://localhost:3000) trên trình duyệt.
 
-### Bước 4: Kiểm tra chất lượng mã nguồn & Build Production
+### Bước 4: Kiểm tra chất lượng mã nguồn & Chạy Test Tự động
 ```bash
 # Kiểm tra TypeScript
 npx tsc --noEmit
@@ -81,8 +81,14 @@ npx tsc --noEmit
 # Kiểm tra ESLint
 npx eslint src
 
-# Chạy toàn bộ bộ test tự động
-node --test tests/**/*.test.mjs
+# Chạy toàn bộ bộ test tự động (Yêu cầu dev server đang chạy tại http://localhost:3000)
+npm test
+
+# Tùy chọn: Nếu dev server chạy ở cổng khác cổng 3000:
+# (Windows PowerShell):
+$env:TEST_BASE_URL="http://localhost:3001"; npm test
+# (Linux / macOS):
+TEST_BASE_URL=http://localhost:3001 npm test
 
 # Build ứng dụng cho môi trường Production
 npm run build
@@ -110,7 +116,8 @@ tikmusic/
 ├── tests/                     # Bộ kiểm thử tự động (node --test)
 │   ├── auth.test.mjs          # Kiểm thử xác thực & phiên làm việc
 │   ├── group-a.test.mjs       # Kiểm thử bảo mật (Nhóm A)
-│   └── group-b.test.mjs       # Kiểm thử playlist & tương tác (Nhóm B)
+│   ├── group-b.test.mjs       # Kiểm thử playlist & tương tác (Nhóm B)
+│   └── proxy.test.mjs         # Kiểm thử bảo mật Audio Proxy (SSRF, allowlist, rate limit)
 ├── .env.example               # File mẫu biến môi trường
 ├── next.config.ts             # Cấu hình Next.js (Image CDNs, remotePatterns)
 └── package.json

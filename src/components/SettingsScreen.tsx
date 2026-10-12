@@ -4,47 +4,75 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { HardDrive, Volume2, Info, User, LogIn, LogOut, Shield } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useMusic } from '@/context/MusicContext';
 import Image from 'next/image';
 
 export default function SettingsScreen() {
   const { user, logout } = useAuth();
+  const { showToast } = useMusic();
   const [defaultQuality, setDefaultQuality] = useState('320');
-  const [autoDownload, setAutoDownload] = useState(true);
+  const [autoDownload, setAutoDownload] = useState(false);
   const [notifications, setNotifications] = useState(false);
+  const [hasNotificationSupport, setHasNotificationSupport] = useState(false);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      const q = localStorage.getItem('tikmusic_quality');
-      if (q) setDefaultQuality(q);
-      const ad = localStorage.getItem('tikmusic_autodownload');
-      if (ad !== null) setAutoDownload(ad === 'true');
-      const notif = localStorage.getItem('tikmusic_notifications');
-      if (notif !== null) setNotifications(notif === 'true');
+      try {
+        const q = localStorage.getItem('tikmusic_quality');
+        if (q && ['128', '192', '320'].includes(q)) setDefaultQuality(q);
+        const ad = localStorage.getItem('tikmusic_autodownload');
+        if (ad !== null) setAutoDownload(ad === 'true');
+        const notif = localStorage.getItem('tikmusic_notifications');
+        if (notif !== null) setNotifications(notif === 'true');
+      } catch {
+        // localStorage không khả dụng
+      }
+
+      if ('Notification' in window) {
+        setHasNotificationSupport(true);
+      }
     }
   }, []);
 
   const handleQualityChange = (q: string) => {
     setDefaultQuality(q);
-    if (typeof window !== 'undefined') {
+    try {
       localStorage.setItem('tikmusic_quality', q);
-    }
+    } catch {}
   };
 
   const handleAutoDownloadChange = (val: boolean) => {
     setAutoDownload(val);
-    if (typeof window !== 'undefined') {
+    try {
       localStorage.setItem('tikmusic_autodownload', String(val));
-    }
+    } catch {}
   };
 
-  const handleNotificationsChange = (val: boolean) => {
-    setNotifications(val);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('tikmusic_notifications', String(val));
-      if (val && 'Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().catch(() => {});
+  const handleNotificationsChange = async (val: boolean) => {
+    if (val && typeof window !== 'undefined' && 'Notification' in window) {
+      try {
+        if (Notification.permission === 'default') {
+          const perm = await Notification.requestPermission();
+          if (perm !== 'granted') {
+            setNotifications(false);
+            try { localStorage.setItem('tikmusic_notifications', 'false'); } catch {}
+            return;
+          }
+        } else if (Notification.permission === 'denied') {
+          setNotifications(false);
+          try { localStorage.setItem('tikmusic_notifications', 'false'); } catch {}
+          return;
+        }
+      } catch {
+        setNotifications(false);
+        try { localStorage.setItem('tikmusic_notifications', 'false'); } catch {}
+        return;
       }
     }
+    setNotifications(val);
+    try {
+      localStorage.setItem('tikmusic_notifications', String(val));
+    } catch {}
   };
 
   return (
@@ -97,8 +125,12 @@ export default function SettingsScreen() {
               </div>
 
               <button
-                onClick={() => logout()}
-                className="px-4 py-2 rounded-xl bg-[#FE2C55]/10 hover:bg-[#FE2C55]/20 text-[#FE2C55] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-[#FE2C55]/30 w-full sm:w-auto"
+                type="button"
+                onClick={async () => {
+                  const res = await logout();
+                  showToast(res.message || 'Đã đăng xuất tài khoản.');
+                }}
+                className="px-4 py-2 rounded-xl bg-[#FE2C55]/10 hover:bg-[#FE2C55]/20 text-[#FE2C55] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-[#FE2C55]/30 w-full sm:w-auto cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Đăng xuất</span>
@@ -143,7 +175,7 @@ export default function SettingsScreen() {
             {[
               { id: '128', label: '128 kbps', desc: 'Tiết kiệm bộ nhớ' },
               { id: '192', label: '192 kbps', desc: 'Chuẩn âm thanh tốt' },
-              { id: '320', label: '320 kbps', desc: 'Chất lượng cao nhất' },
+              { id: '320', label: 'Chất lượng cao nhất', desc: 'Nguyên bản tốt nhất' },
             ].map((item) => (
               <button
                 key={item.id}
@@ -175,8 +207,8 @@ export default function SettingsScreen() {
           <div className="space-y-3 pt-1">
             <div className="flex items-center justify-between p-3 rounded-xl bg-[#0B0F1D]">
               <div>
-                <p className="text-sm font-semibold text-white">Tự động gắn thẻ ID3 (Tag nhạc)</p>
-                <p className="text-xs text-slate-400">Tự động lưu tên ca sĩ, tiêu đề và thông tin bài hát</p>
+                <p className="text-sm font-semibold text-white">Tự động tải khi dán link TikTok</p>
+                <p className="text-xs text-slate-400">Tải file trực tiếp không qua bước chọn chất lượng khi link hợp lệ</p>
               </div>
               <input
                 type="checkbox"
@@ -186,18 +218,20 @@ export default function SettingsScreen() {
               />
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-xl bg-[#0B0F1D]">
-              <div>
-                <p className="text-sm font-semibold text-white">Thông báo khi tải xong</p>
-                <p className="text-xs text-slate-400">Hiển thị thông báo trình duyệt khi bài hát đã sẵn sàng</p>
+            {hasNotificationSupport && (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#0B0F1D]">
+                <div>
+                  <p className="text-sm font-semibold text-white">Thông báo khi tải xong</p>
+                  <p className="text-xs text-slate-400">Hiển thị thông báo trình duyệt khi bài hát đã sẵn sàng</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={notifications}
+                  onChange={(e) => handleNotificationsChange(e.target.checked)}
+                  className="w-5 h-5 accent-[#8B5CF6] rounded cursor-pointer"
+                />
               </div>
-              <input
-                type="checkbox"
-                checked={notifications}
-                onChange={(e) => handleNotificationsChange(e.target.checked)}
-                className="w-5 h-5 accent-[#8B5CF6] rounded cursor-pointer"
-              />
-            </div>
+            )}
           </div>
         </div>
 

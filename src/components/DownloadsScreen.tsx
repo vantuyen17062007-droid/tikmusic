@@ -37,8 +37,17 @@ export default function DownloadsScreen() {
               className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-[#121829] hover:bg-[#161F36] border border-[#222E52]/60 transition-all duration-200"
             >
               <div
+                role="button"
+                tabIndex={0}
                 onClick={() => playSong(item.song)}
-                className="flex items-center gap-3.5 flex-1 min-w-0 cursor-pointer"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    playSong(item.song);
+                  }
+                }}
+                aria-label={`Phát bài ${item.song.title}`}
+                className="flex items-center gap-3.5 flex-1 min-w-0 cursor-pointer outline-none"
               >
                 <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-[#0B0E17]">
                   <Image
@@ -69,9 +78,11 @@ export default function DownloadsScreen() {
                   <span>Hoàn tất</span>
                 </span>
                 <button
+                  type="button"
                   onClick={() => playSong(item.song)}
-                  className="p-2 rounded-xl bg-[#8B5CF6] text-white hover:bg-[#7C3AED] transition-colors"
+                  className="p-2 rounded-xl bg-[#8B5CF6] text-white hover:bg-[#7C3AED] transition-colors cursor-pointer"
                   title="Phát nhạc"
+                  aria-label={`Phát bài ${item.song.title}`}
                 >
                   <Play className="w-4 h-4 fill-current ml-0.5" />
                 </button>

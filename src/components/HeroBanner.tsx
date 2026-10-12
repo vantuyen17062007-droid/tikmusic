@@ -6,7 +6,7 @@ import { useMusic } from '../context/MusicContext';
 import TikTokIcon from './TikTokIcon';
 
 export default function HeroBanner() {
-  const { openDownloadModal } = useMusic();
+  const { openDownloadModal, triggerDirectDownload } = useMusic();
   const [tiktokUrl, setTiktokUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -31,7 +31,16 @@ export default function HeroBanner() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        openDownloadModal(data.data, data.message);
+        let isAuto = false;
+        try {
+          isAuto = typeof window !== 'undefined' && localStorage.getItem('tikmusic_autodownload') === 'true';
+        } catch {}
+
+        if (isAuto && data.data && data.data.audioUrl) {
+          await triggerDirectDownload(data.data);
+        } else {
+          openDownloadModal(data.data, data.message);
+        }
       } else {
         setErrorMessage(data.message || 'Không thể xử lý link TikTok này.');
       }

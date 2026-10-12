@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Download, Music, AlertCircle, Info, Loader2, Sparkles } from 'lucide-react';
 import { useMusic } from '../context/MusicContext';
 import { DownloadQuality } from '../types';
@@ -12,10 +12,26 @@ export default function DownloadModal() {
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  // Việc 1: Đọc defaultQuality từ localStorage làm mức chọn mặc định
+  useEffect(() => {
+    try {
+      const savedQuality = localStorage.getItem('tikmusic_quality');
+      if (savedQuality && ['128', '192', '320'].includes(savedQuality)) {
+        setSelectedQuality(savedQuality as DownloadQuality);
+      }
+    } catch {
+      // localStorage không khả dụng
+    }
+  }, [downloadModalOpen]);
+
   if (!downloadModalOpen || !songToDownload) return null;
 
   const hasAudioUrl = Boolean(songToDownload.audioUrl);
-  const isSampleAudio = songToDownload.isDemoSample || songToDownload.audioUrl.includes('actions.google.com');
+  // Việc 2: Nhận diện bài mẫu từ thuộc tính isDemoSample hoặc URL Google Actions
+  const isSampleAudio = Boolean(
+    songToDownload.isDemoSample ||
+    songToDownload.audioUrl.includes('actions.google.com')
+  );
 
   const qualityOptions: { id: DownloadQuality; label: string; desc: string; size: string }[] = [
     {
@@ -32,7 +48,7 @@ export default function DownloadModal() {
     },
     {
       id: '320',
-      label: 'Chất lượng tối đa (320 kbps)',
+      label: 'Chất lượng tối đa',
       desc: 'Nguyên bản tốt nhất',
       size: songToDownload.fileSize320 || '6.1 MB',
     },
@@ -52,11 +68,10 @@ export default function DownloadModal() {
       if (songToDownload.audioUrl.endsWith('.ogg')) extension = 'ogg';
       else if (songToDownload.audioUrl.endsWith('.wav')) extension = 'wav';
 
-      const fileName = isSampleAudio
-        ? `${songToDownload.artist} - ${songToDownload.title} (Bản mẫu).${extension}`
-        : `${songToDownload.artist} - ${songToDownload.title} (${selectedQuality}kbps).${extension}`;
+      // Việc 2: Tên file tải về theo định dạng "Nghệ sĩ - Tên bài.ext", không ghi kbps giả lập
+      const fileName = `${songToDownload.artist} - ${songToDownload.title}.${extension}`;
 
-      // C3: Tải file qua API Proxy an toàn để tránh lỗi CORS giữa các domain khác nhau
+      // Việc 3: Tải file qua API Proxy an toàn cùng origin
       const proxyUrl = `/api/audio/proxy?url=${encodeURIComponent(songToDownload.audioUrl)}&filename=${encodeURIComponent(fileName)}`;
 
       let response: Response;
@@ -72,7 +87,7 @@ export default function DownloadModal() {
           const errJson = await response.json();
           if (errJson.message) errText = errJson.message;
         } catch {
-          // keep errText
+          // Giữ thông báo mặc định
         }
         throw new Error(errText);
       }
@@ -89,6 +104,25 @@ export default function DownloadModal() {
       window.URL.revokeObjectURL(blobUrl);
 
       startDownload(songToDownload, selectedQuality);
+
+      // Việc 1: Thông báo trình duyệt bằng Notification API khi tải xong nếu đã cấp quyền
+      try {
+        const notifEnabled = localStorage.getItem('tikmusic_notifications') === 'true';
+        if (
+          notifEnabled &&
+          typeof window !== 'undefined' &&
+          'Notification' in window &&
+          Notification.permission === 'granted'
+        ) {
+          new Notification('TikMusic - Tải nhạc hoàn tất', {
+            body: `Đã tải xong bài hát: ${songToDownload.artist} - ${songToDownload.title}`,
+            icon: songToDownload.coverUrl,
+          });
+        }
+      } catch {
+        // Bỏ qua lỗi Notification
+      }
+
       closeDownloadModal();
     } catch (err: unknown) {
       console.error('Download error:', err);
@@ -164,26 +198,26 @@ export default function DownloadModal() {
           </div>
         </div>
 
-        {/* C2: Quality Options vs Sample Single Option */}
+        {/* Việc 2: Hiển thị tùy chọn tải */}
         {hasAudioUrl ? (
           <div className="space-y-3">
-            <label className="text-sm font-semibold text-slate-200 block">
-              {isSampleAudio ? 'Chất lượng tệp âm thanh' : 'Chọn chất lượng tải xuống'}
-            </label>
-
             {isSampleAudio ? (
-              // C2: Với nguồn mẫu, hiển thị rõ ràng nhãn Bản mẫu chất lượng gốc, không gây hiểu lầm bitrate
+              // Với bài mẫu: Hiện ghi chú "Bản mẫu, chất lượng gốc của nguồn" và ẩn 3 lựa chọn kbps
               <div className="p-3.5 rounded-xl bg-[#182138] border border-[#8B5CF6]/60 text-white space-y-1.5 shadow-md shadow-[#8B5CF6]/10">
                 <div className="flex items-center gap-2 text-[#25F4EE] text-xs font-bold uppercase tracking-wide">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Bản mẫu, chất lượng gốc</span>
+                  <span>Bản mẫu, chất lượng gốc của nguồn</span>
                 </div>
                 <p className="text-xs text-slate-300">
                   Tệp âm thanh minh họa trải nghiệm (Định dạng {songToDownload.audioUrl.endsWith('.ogg') ? 'OGG' : 'MP3'}, dung lượng ~3.5 MB).
                 </p>
               </div>
             ) : (
+              // Với bài có nhiều mức chất lượng: Giữ 3 lựa chọn
               <div className="space-y-2.5">
+                <label className="text-sm font-semibold text-slate-200 block">
+                  Chọn chất lượng tải xuống
+                </label>
                 {qualityOptions.map((opt) => {
                   const isSelected = selectedQuality === opt.id;
                   return (
@@ -235,7 +269,7 @@ export default function DownloadModal() {
           </div>
         )}
 
-        {/* Action Button */}
+        {/* Action Button: Giữ duy nhất một nút tải */}
         <button
           onClick={handleDownload}
           disabled={isDownloading || !hasAudioUrl}
